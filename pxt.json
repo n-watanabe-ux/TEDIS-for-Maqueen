@@ -1,6 +1,6 @@
 {
-    "name": "a",
-    "description": "",
+    "name": "TEDIS-for-Maqueen",
+    "description": "TEDIS extension for micro:bit Maqueen",
     "dependencies": {
         "core": "*",
         "radio": "*",
