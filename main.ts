@@ -20,11 +20,29 @@ namespace tedis {
     const GDATA = 0x18
     const BDATA = 0x1A
 
-    // Integration time: 101.2 ms
-    // 256 - 0xD5 = 43 counts × 2.4 ms = 103.2 ms
+    // Integration time: about 103 ms
     const INTEGRATION_TIME = 0xD5
 
     let initialized = false
+
+
+    /**
+     * TCS34725の取得項目
+     */
+    export enum TCS34725Channel {
+        //% block="赤" ariaLabel="赤"
+        Red = 0,
+
+        //% block="緑" ariaLabel="緑"
+        Green = 1,
+
+        //% block="青" ariaLabel="青"
+        Blue = 2,
+
+        //% block="明るさ" ariaLabel="明るさ"
+        Clear = 3
+    }
+
 
     /**
      * Write one byte to a TCS34725 register.
@@ -38,6 +56,7 @@ namespace tedis {
             ])
         )
     }
+
 
     /**
      * Read one byte from a TCS34725 register.
@@ -56,6 +75,7 @@ namespace tedis {
             false
         )
     }
+
 
     /**
      * Read a 16-bit value from two consecutive registers.
@@ -76,6 +96,7 @@ namespace tedis {
 
         return data[0] | (data[1] << 8)
     }
+
 
     /**
      * Initialize TCS34725.
@@ -105,41 +126,34 @@ namespace tedis {
         initialized = true
     }
 
-enum TCS34725Channel {
-    //% block="赤"
-    Red,
 
-    //% block="緑"
-    Green,
+    /**
+     * TCS34725の値を取得
+     */
+    //% block="TCS34725 の $channel の値"
+    //% channel.defl=TCS34725Channel.Red
+    //% group="TCS34725"
+    export function value(channel: TCS34725Channel): number {
+        init()
 
-    //% block="青"
-    Blue,
+        switch (channel) {
+            case TCS34725Channel.Red:
+                return read16(RDATA)
 
-    //% block="明るさ"
-    Clear
-}
+            case TCS34725Channel.Green:
+                return read16(GDATA)
 
-//% block="TCS34725 の $channel の値"
-//% group="TCS34725"
-export function value(channel: TCS34725Channel): number {
-    init()
+            case TCS34725Channel.Blue:
+                return read16(BDATA)
 
-    switch (channel) {
-        case TCS34725Channel.Red:
-            return read16(RDATA)
+            case TCS34725Channel.Clear:
+                return read16(CDATA)
 
-        case TCS34725Channel.Green:
-            return read16(GDATA)
-
-        case TCS34725Channel.Blue:
-            return read16(BDATA)
-
-        case TCS34725Channel.Clear:
-            return read16(CDATA)
+            default:
+                return 0
+        }
     }
 
-    return 0
-}
 
     /**
      * TCS34725のID
@@ -151,15 +165,18 @@ export function value(channel: TCS34725Channel): number {
         return readRegister(ID)
     }
 
+
     /**
      * TCS34725のデータ有効状態
-     * 1 = 新しいRGBCデータあり
-     * 0 = 変換中
+     *
+     * true = 新しいRGBCデータあり
+     * false = 変換中
      */
     //% block="TCS34725 のデータ有効"
     //% group="TCS34725 デバッグ"
     export function dataReady(): boolean {
         init()
+
         return (readRegister(STATUS) & 0x01) != 0
     }
 }
