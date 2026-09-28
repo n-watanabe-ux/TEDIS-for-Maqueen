@@ -105,45 +105,41 @@ namespace tedis {
         initialized = true
     }
 
-    /**
-     * TCS34725のClear値
-     */
-    //% block="TCS34725 の明るさ"
-    //% group="TCS34725"
-    export function clear(): number {
-        init()
-        return read16(CDATA)
+enum TCS34725Channel {
+    //% block="赤"
+    Red,
+
+    //% block="緑"
+    Green,
+
+    //% block="青"
+    Blue,
+
+    //% block="明るさ"
+    Clear
+}
+
+//% block="TCS34725 の $channel の値"
+//% group="TCS34725"
+export function value(channel: TCS34725Channel): number {
+    init()
+
+    switch (channel) {
+        case TCS34725Channel.Red:
+            return read16(RDATA)
+
+        case TCS34725Channel.Green:
+            return read16(GDATA)
+
+        case TCS34725Channel.Blue:
+            return read16(BDATA)
+
+        case TCS34725Channel.Clear:
+            return read16(CDATA)
     }
 
-    /**
-     * TCS34725の赤の生データ
-     */
-    //% block="TCS34725 の赤"
-    //% group="TCS34725"
-    export function red(): number {
-        init()
-        return read16(RDATA)
-    }
-
-    /**
-     * TCS34725の緑の生データ
-     */
-    //% block="TCS34725 の緑"
-    //% group="TCS34725"
-    export function green(): number {
-        init()
-        return read16(GDATA)
-    }
-
-    /**
-     * TCS34725の青の生データ
-     */
-    //% block="TCS34725 の青"
-    //% group="TCS34725"
-    export function blue(): number {
-        init()
-        return read16(BDATA)
-    }
+    return 0
+}
 
     /**
      * TCS34725のID
