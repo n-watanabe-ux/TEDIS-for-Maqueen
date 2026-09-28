@@ -4,8 +4,7 @@
     "dependencies": {
         "core": "*",
         "radio": "*",
-        "microphone": "*",
-        "pxt-robotcar": "github:veilkrand/pxt-robotcar#v0.0.14"
+        "microphone": "*"
     },
     "files": [
         "main.blocks",
