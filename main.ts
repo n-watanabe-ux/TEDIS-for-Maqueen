@@ -132,7 +132,7 @@ namespace tedis {
      */
     //% block="TCS34725 の $channel の値"
     //% channel.defl=TCS34725Channel.Red
-    //% group="TCS34725"
+    //% group="カラーセンサ―"
     export function value(channel: TCS34725Channel): number {
         init()
 
