@@ -21,7 +21,7 @@ namespace tedis {
     const BDATA = 0x1A
 
     // Integration time: about 103 ms
-    const INTEGRATION_TIME = 0xD5
+    const INTEGRATION_TIME = 0xC0
 
     let initialized = false
 
