@@ -225,7 +225,7 @@ namespace tedis {
 
         // 赤
         // RがG、Bより大きい
-        if (r > g && r > b) {
+        if (R >= G + 5 && R >= B + 5) {
             return TCS34725Color.Red
         }
 
