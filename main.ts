@@ -20,7 +20,7 @@ namespace tedis {
     const GDATA = 0x18
     const BDATA = 0x1A
 
-    // Integration time: about 103 ms
+    // Integration time: about 154 ms
     const INTEGRATION_TIME = 0xC0
 
     let initialized = false
@@ -41,6 +41,33 @@ namespace tedis {
 
         //% block="明るさ" ariaLabel="明るさ"
         Clear = 3
+    }
+
+
+    /**
+     * TCS34725の色
+     */
+    export enum TCS34725Color {
+        //% block="赤" ariaLabel="赤"
+        Red = 0,
+
+        //% block="黄" ariaLabel="黄"
+        Yellow = 1,
+
+        //% block="緑" ariaLabel="緑"
+        Green = 2,
+
+        //% block="青" ariaLabel="青"
+        Blue = 3,
+
+        //% block="白" ariaLabel="白"
+        White = 4,
+
+        //% block="黒" ariaLabel="黒"
+        Black = 5,
+
+        //% block="その他" ariaLabel="その他"
+        Other = 6
     }
 
 
@@ -106,7 +133,7 @@ namespace tedis {
             return
         }
 
-        // Integration time = about 103 ms
+        // Integration time = about 154 ms
         writeRegister(ATIME, INTEGRATION_TIME)
 
         // Gain = 1x
@@ -121,7 +148,7 @@ namespace tedis {
         writeRegister(ENABLE, 0x03)
 
         // Wait for first conversion
-        basic.pause(110)
+        basic.pause(160)
 
         initialized = true
     }
@@ -131,8 +158,8 @@ namespace tedis {
      * TCS34725の値を取得
      */
     //% block="カラーセンサー の $channel の値"
-    //% channel.defl=カラーセンサ―Channel.Red
-    //% group="カラーセンサ―"
+    //% channel.defl=TCS34725Channel.Red
+    //% group="カラーセンサー"
     export function value(channel: TCS34725Channel): number {
         init()
 
@@ -152,6 +179,66 @@ namespace tedis {
             default:
                 return 0
         }
+    }
+
+
+    /**
+     * TCS34725の色を判定
+     *
+     * 前提：
+     * ・LED ON
+     * ・センサーから床面まで約20mm
+     * ・積分時間 C0（約154ms）
+     *
+     * 仮の判定条件。実走行で調整する。
+     */
+    //% block="カラーセンサー の色"
+    //% group="カラーセンサー"
+    export function color(): TCS34725Color {
+        init()
+
+        const r = read16(RDATA)
+        const g = read16(GDATA)
+        const b = read16(BDATA)
+        const c = read16(CDATA)
+
+        // 白
+        if (c > 180) {
+            return TCS34725Color.White
+        }
+
+        // 黄
+        if (c > 100) {
+            return TCS34725Color.Yellow
+        }
+
+        // 黒
+        if (c < 65) {
+            return TCS34725Color.Black
+        }
+
+        // 緑
+        // BがR、Gより5以上小さい
+        if (b + 5 < r && b + 5 < g) {
+            return TCS34725Color.Green
+        }
+
+        // 赤
+        // RがG、Bより大きい
+        if (r > g && r > b) {
+            return TCS34725Color.Red
+        }
+
+        // 青
+        // RGBの最大値と最小値の差が5以下
+        const maxRGB = Math.max(r, Math.max(g, b))
+        const minRGB = Math.min(r, Math.min(g, b))
+
+        if (maxRGB - minRGB <= 5) {
+            return TCS34725Color.Blue
+        }
+
+        return TCS34725Color.Other
     }
 
 
