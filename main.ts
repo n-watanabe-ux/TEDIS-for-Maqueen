@@ -49,25 +49,25 @@ namespace tedis {
      */
     export enum TCS34725Color {
         //% block="赤" ariaLabel="赤"
-        Red = 0,
+        Red = 5,
 
         //% block="黄" ariaLabel="黄"
-        Yellow = 1,
+        Yellow = 4,
 
         //% block="緑" ariaLabel="緑"
-        Green = 2,
+        Green = 3,
 
         //% block="青" ariaLabel="青"
-        Blue = 3,
+        Blue = 2,
 
         //% block="白" ariaLabel="白"
-        White = 4,
+        White = 6,
 
         //% block="黒" ariaLabel="黒"
-        Black = 5,
+        Black =1,
 
         //% block="その他" ariaLabel="その他"
-        Other = 6
+        Other = 7
     }
 
 
