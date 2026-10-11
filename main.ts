@@ -3,7 +3,7 @@
  * TCS34725 Color Sensor
  */
 
-//% color="#8B4513" icon="\uf1fb" block="TEDIS"
+//% color="#8B4513" icon="\uf1fb" block="センサー"
 namespace tedis {
 
     const TCS34725_ADDRESS = 0x29
