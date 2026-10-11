@@ -52,10 +52,10 @@ namespace tedisMove {
         setMotor(maqueenPlusV2.MyEnumMotor.RightMotor, rightSpeed)
     }
 
-    /** Start Steering movement. Steering -100..100; speed 0..100. */
+    /** Start Steering movement. Steering -100..100; signed speed -100..100. */
     function startSteering(steering: number, speed: number): void {
         steering = Math.max(-100, Math.min(100, steering))
-        speed = Math.max(0, Math.min(100, speed))
+        speed = Math.max(-100, Math.min(100, speed))
 
         let left = speed
         let right = speed
@@ -105,7 +105,7 @@ namespace tedisMove {
     /** Steering drive for a specified number of seconds. */
     //% block="Steering走行 操舵 %steering 速度 %speed で %seconds 秒"
     //% steering.min=-100 steering.max=100 steering.defl=0
-    //% speed.min=0 speed.max=100 speed.defl=50
+    //% speed.min=-100 speed.max=100 speed.defl=50
     //% seconds.min=0 seconds.max=60 seconds.defl=1
     //% group="Steering走行"
     //% weight=18
@@ -118,10 +118,11 @@ namespace tedisMove {
     /** Steering drive continuously until the stop block is called. */
     //% block="Steering走行 操舵 %steering 速度 %speed で連続"
     //% steering.min=-100 steering.max=100 steering.defl=0
-    //% speed.min=0 speed.max=100 speed.defl=50
+    //% speed.min=-100 speed.max=100 speed.defl=50
     //% group="Steering走行"
     //% weight=17
     export function steeringOn(steering: number, speed: number): void {
         startSteering(steering, speed)
     }
 }
+
