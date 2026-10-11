@@ -132,6 +132,7 @@ namespace tedisMove {
 
     /** Tank drive for a specified number of seconds. */
     //% block="移動 左 %leftSpeed 右 %rightSpeed の速度 %amount %unit"
+    //% inlineInputMode=inline
     //% leftSpeed.min=0 leftSpeed.max=100 leftSpeed.defl=50
     //% rightSpeed.min=0 rightSpeed.max=100 rightSpeed.defl=50
     //% amount.min=0 amount.max=3600 amount.defl=1
