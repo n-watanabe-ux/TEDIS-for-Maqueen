@@ -6,7 +6,7 @@
  * Encoder-count movement is intentionally not included until a reliable public API
  * for per-wheel cumulative encoder counts is confirmed.
  */
-//% color="#4C8C6B" icon="\uf1b9" block="移動"
+//% color="#4C8C6B" icon="\uf1b9" block="MOVEMENT"
 namespace tedisMove {
     let initialized = false
 
