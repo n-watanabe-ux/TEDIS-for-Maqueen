@@ -131,7 +131,7 @@ namespace tedisMove {
     }
 
     /** Tank drive for a specified number of seconds. */
-    //% block="移動 左 %leftSpeed 右 %rightSpeed の速度で %amount %unit"
+    //% block="移動 左 %leftSpeed 右 %rightSpeed の速度 %amount %unit"
     //% leftSpeed.min=0 leftSpeed.max=100 leftSpeed.defl=50
     //% rightSpeed.min=0 rightSpeed.max=100 rightSpeed.defl=50
     //% amount.min=0 amount.max=3600 amount.defl=1
@@ -144,7 +144,7 @@ namespace tedisMove {
     }
 
     /** Tank drive continuously until the stop block is called. */
-    //% block=移動 左 %leftSpeed 右 %rightSpeed の速度で連続"
+    //% block=移動 左 %leftSpeed 右 %rightSpeed の速度で継続"
     //% leftSpeed.min=0 leftSpeed.max=100 leftSpeed.defl=50
     //% rightSpeed.min=0 rightSpeed.max=100 rightSpeed.defl=50
     //% group="タンク"
@@ -154,7 +154,7 @@ namespace tedisMove {
     }
 
     /** Steering drive for a specified number of seconds. */
-    //% block="移動 操舵 %steering 速度 %speed で %amount %unit"
+    //% block="移動 操舵 %steering 速度 %speed  %amount %unit"
     //% steering.min=-100 steering.max=100 steering.defl=0
     //% speed.min=-100 speed.max=100 speed.defl=50
     //% amount.min=0 amount.max=3600 amount.defl=1
