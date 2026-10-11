@@ -71,7 +71,7 @@ namespace tedisMove {
     }
 
     /** Stop both motors using the official extension's stop command. */
-    //% block="移動を停止"
+    //% block="移動をやめる"
     //% group="停止"
     //% weight=1
     export function stop(): void {
