@@ -80,11 +80,11 @@ namespace tedisMove {
     }
 
     /** Tank drive for a specified number of seconds. */
-    //% block="Tank走行 左 %leftSpeed 右 %rightSpeed の速度で %seconds 秒"
+    //% block="移動 左 %leftSpeed 右 %rightSpeed の速度で %seconds 秒"
     //% leftSpeed.min=0 leftSpeed.max=100 leftSpeed.defl=50
     //% rightSpeed.min=0 rightSpeed.max=100 rightSpeed.defl=50
     //% seconds.min=0 seconds.max=60 seconds.defl=1
-    //% group="Tank走行"
+    //% group="タンク"
     //% weight=20
     export function tankForSeconds(leftSpeed: number, rightSpeed: number, seconds: number): void {
         startTank(leftSpeed, rightSpeed)
@@ -93,21 +93,21 @@ namespace tedisMove {
     }
 
     /** Tank drive continuously until the stop block is called. */
-    //% block="Tank走行 左 %leftSpeed 右 %rightSpeed の速度で連続"
+    //% block="移動 左 %leftSpeed 右 %rightSpeed の速度で連続"
     //% leftSpeed.min=0 leftSpeed.max=100 leftSpeed.defl=50
     //% rightSpeed.min=0 rightSpeed.max=100 rightSpeed.defl=50
-    //% group="Tank走行"
+    //% group="タンク"
     //% weight=19
     export function tankOn(leftSpeed: number, rightSpeed: number): void {
         startTank(leftSpeed, rightSpeed)
     }
 
     /** Steering drive for a specified number of seconds. */
-    //% block="Steering走行 操舵 %steering 速度 %speed で %seconds 秒"
+    //% block="移動 向き %steering 速度 %speed で %seconds 秒"
     //% steering.min=-100 steering.max=100 steering.defl=0
     //% speed.min=-100 speed.max=100 speed.defl=50
     //% seconds.min=0 seconds.max=60 seconds.defl=1
-    //% group="Steering走行"
+    //% group="ステアリング"
     //% weight=18
     export function steeringForSeconds(steering: number, speed: number, seconds: number): void {
         startSteering(steering, speed)
@@ -116,10 +116,10 @@ namespace tedisMove {
     }
 
     /** Steering drive continuously until the stop block is called. */
-    //% block="Steering走行 操舵 %steering 速度 %speed で連続"
+    //% block="移動 向き %steering 速度 %speed で連続"
     //% steering.min=-100 steering.max=100 steering.defl=0
     //% speed.min=-100 speed.max=100 speed.defl=50
-    //% group="Steering走行"
+    //% group="ステアリング"
     //% weight=17
     export function steeringOn(steering: number, speed: number): void {
         startSteering(steering, speed)
