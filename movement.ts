@@ -10,6 +10,14 @@
 namespace tedisMove {
     let initialized = false
 
+    /** Select whether a timed movement is specified in seconds or wheel rotation angle. */
+    export enum MoveUnit {
+        //% block="秒"
+        Seconds,
+        //% block="角度"
+        Angle
+    }
+
     /** Ensure the official Maqueen Plus extension has initialized its I2C controller. */
     function ensureInitialized(): void {
         if (!initialized) {
@@ -70,8 +78,51 @@ namespace tedisMove {
         setMotor(maqueenPlusV2.MyEnumMotor.RightMotor, right)
     }
 
+    /**
+     * Run the currently commanded movement until the faster wheel has travelled
+     * the distance corresponding to the requested wheel angle. Speeds are read
+     * separately for the left and right wheels from the Maqueen controller.
+     * Wheel diameter is fixed at 43 mm (4.3 cm).
+     */
+    function runForWheelAngle(angle: number): void {
+        const wheelDiameterCm = 4.3
+        const targetDistanceCm = Math.PI * wheelDiameterCm * Math.max(0, angle) / 360
+        let leftDistance = 0
+        let rightDistance = 0
+        let previousTime = input.runningTime()
+        let lastMotionTime = previousTime
+
+        while (Math.max(leftDistance, rightDistance) < targetDistanceCm) {
+            basic.pause(20)
+            const now = input.runningTime()
+            const elapsedSeconds = Math.max(0, now - previousTime) / 1000
+            previousTime = now
+            const leftSpeed = maqueenPlusV2.readRealTimeSpeed(maqueenPlusV2.DirectionType2.Left)
+            const rightSpeed = maqueenPlusV2.readRealTimeSpeed(maqueenPlusV2.DirectionType2.Right)
+            leftDistance += leftSpeed * elapsedSeconds
+            rightDistance += rightSpeed * elapsedSeconds
+            if (leftSpeed > 0 || rightSpeed > 0) {
+                lastMotionTime = now
+            } else if (now - lastMotionTime > 2000) {
+                // Avoid waiting forever if both motors are stopped or speed data is unavailable.
+                break
+            }
+        }
+        stop()
+    }
+
+    /** Run for either the specified time or the wheel rotation angle. */
+    function runForUnit(unit: MoveUnit, amount: number): void {
+        if (unit == MoveUnit.Seconds) {
+            basic.pause(Math.max(0, amount) * 1000)
+            stop()
+        } else {
+            runForWheelAngle(amount)
+        }
+    }
+
     /** Stop both motors using the official extension's stop command. */
-    //% block="移動をやめる"
+    //% block="移動を停止"
     //% group="停止"
     //% weight=1
     export function stop(): void {
@@ -80,46 +131,46 @@ namespace tedisMove {
     }
 
     /** Tank drive for a specified number of seconds. */
-    //% block="移動 左 %leftSpeed 右 %rightSpeed の速度で %seconds 秒"
+    //% block="Tank走行 左 %leftSpeed 右 %rightSpeed の速度で %amount %unit"
     //% leftSpeed.min=0 leftSpeed.max=100 leftSpeed.defl=50
     //% rightSpeed.min=0 rightSpeed.max=100 rightSpeed.defl=50
-    //% seconds.min=0 seconds.max=60 seconds.defl=1
-    //% group="タンク"
+    //% amount.min=0 amount.max=3600 amount.defl=1
+    //% unit.defl=0
+    //% group="Tank走行"
     //% weight=20
-    export function tankForSeconds(leftSpeed: number, rightSpeed: number, seconds: number): void {
+    export function tankForSeconds(leftSpeed: number, rightSpeed: number, amount: number, unit: MoveUnit): void {
         startTank(leftSpeed, rightSpeed)
-        basic.pause(Math.max(0, seconds) * 1000)
-        stop()
+        runForUnit(unit, amount)
     }
 
     /** Tank drive continuously until the stop block is called. */
-    //% block="移動 左 %leftSpeed 右 %rightSpeed の速度で連続"
+    //% block="Tank走行 左 %leftSpeed 右 %rightSpeed の速度で連続"
     //% leftSpeed.min=0 leftSpeed.max=100 leftSpeed.defl=50
     //% rightSpeed.min=0 rightSpeed.max=100 rightSpeed.defl=50
-    //% group="タンク"
+    //% group="Tank走行"
     //% weight=19
     export function tankOn(leftSpeed: number, rightSpeed: number): void {
         startTank(leftSpeed, rightSpeed)
     }
 
     /** Steering drive for a specified number of seconds. */
-    //% block="移動 向き %steering 速度 %speed で %seconds 秒"
+    //% block="Steering走行 操舵 %steering 速度 %speed で %amount %unit"
     //% steering.min=-100 steering.max=100 steering.defl=0
     //% speed.min=-100 speed.max=100 speed.defl=50
-    //% seconds.min=0 seconds.max=60 seconds.defl=1
-    //% group="ステアリング"
+    //% amount.min=0 amount.max=3600 amount.defl=1
+    //% unit.defl=0
+    //% group="Steering走行"
     //% weight=18
-    export function steeringForSeconds(steering: number, speed: number, seconds: number): void {
+    export function steeringForSeconds(steering: number, speed: number, amount: number, unit: MoveUnit): void {
         startSteering(steering, speed)
-        basic.pause(Math.max(0, seconds) * 1000)
-        stop()
+        runForUnit(unit, amount)
     }
 
     /** Steering drive continuously until the stop block is called. */
-    //% block="移動 向き %steering 速度 %speed で連続"
+    //% block="Steering走行 操舵 %steering 速度 %speed で連続"
     //% steering.min=-100 steering.max=100 steering.defl=0
     //% speed.min=-100 speed.max=100 speed.defl=50
-    //% group="ステアリング"
+    //% group="Steering走行"
     //% weight=17
     export function steeringOn(steering: number, speed: number): void {
         startSteering(steering, speed)
