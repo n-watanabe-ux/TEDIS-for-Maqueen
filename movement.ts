@@ -154,7 +154,7 @@ namespace tedisMove {
     }
 
     /** Steering drive for a specified number of seconds. */
-    //% block="移動 操舵 %steering 速度 %speed  %amount %unit"
+    //% block="移動 方向 %steering 速度 %speed  %amount %unit"
     //% steering.min=-100 steering.max=100 steering.defl=0
     //% speed.min=-100 speed.max=100 speed.defl=50
     //% amount.min=0 amount.max=3600 amount.defl=1
@@ -167,7 +167,7 @@ namespace tedisMove {
     }
 
     /** Steering drive continuously until the stop block is called. */
-    //% block="移動 操舵 %steering 速度 %speed で連続"
+    //% block="移動 方向 %steering 速度 %speed で連続"
     //% steering.min=-100 steering.max=100 steering.defl=0
     //% speed.min=-100 speed.max=100 speed.defl=50
     //% group="ステアリング"
