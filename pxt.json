@@ -4,11 +4,13 @@
     "dependencies": {
         "core": "*",
         "radio": "*",
-        "microphone": "*"
+        "microphone": "*",
+        "maqueenPlusV2": "github:DFRobot/pxt-DFRobot_MaqueenPlus_v20"
     },
     "files": [
         "main.blocks",
         "main.ts",
+        "movement.ts",
         "README.md"
     ],
     "testFiles": [
