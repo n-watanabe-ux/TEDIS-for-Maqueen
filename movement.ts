@@ -131,7 +131,7 @@ namespace tedisMove {
     }
 
     /** Tank drive for a specified number of seconds. */
-    //% block="移動 左 %leftSpeed 右 %rightSpeed の速度 %amount %unit"
+    //% block="移動 左 %leftSpeed 右 %rightSpeed の速度で %amount %unit"
     //% inlineInputMode=inline
     //% leftSpeed.min=0 leftSpeed.max=100 leftSpeed.defl=50
     //% rightSpeed.min=0 rightSpeed.max=100 rightSpeed.defl=50
@@ -155,7 +155,7 @@ namespace tedisMove {
     }
 
     /** Steering drive for a specified number of seconds. */
-    //% block="移動 方向 %steering 速度 %speed  %amount %unit"
+    //% block="移動 方向 %steering 速度で %speed  %amount %unit"
     //% inlineInputMode=inline
     //% steering.min=-100 steering.max=100 steering.defl=0
     //% speed.min=-100 speed.max=100 speed.defl=50
