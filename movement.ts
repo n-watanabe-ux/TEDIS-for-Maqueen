@@ -144,7 +144,7 @@ namespace tedisMove {
     }
 
     /** Tank drive continuously until the stop block is called. */
-    //% block=移動 左 %leftSpeed 右 %rightSpeed の速度で継続"
+    //% block="移動 左 %leftSpeed 右 %rightSpeed の速度で連続"
     //% leftSpeed.min=0 leftSpeed.max=100 leftSpeed.defl=50
     //% rightSpeed.min=0 rightSpeed.max=100 rightSpeed.defl=50
     //% group="タンク"
