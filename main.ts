@@ -277,5 +277,13 @@ namespace tedis {
             maqueenPlusV2.DigitalPin.P?,
             maqueenPlusV2.DigitalPin.P?
         )
-    }    
+    }
+
+    //% block="タッチセンサー が押されている"
+    //% group="タッチセンサー"
+    //% blockId=tedis_touch_pressed
+    export function touchPressed(): boolean {
+        pins.setPull(DigitalPin.P8, PinPullMode.PullUp)
+        return pins.digitalReadPin(DigitalPin.P8) == 0
+    }
 }
