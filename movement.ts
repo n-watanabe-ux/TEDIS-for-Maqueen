@@ -7,7 +7,7 @@
  * linear-speed readings reported by the Maqueen controller.
  * Wheel diameter is assumed to be 43 mm.
  */
-//% color="#4C8C6B" icon="\uf1b9" block="移動"
+//% color="#4C8C6B" icon="\uf1b9" block="TEDIS移動"
 namespace tedisMove {
     let initialized = false
 
