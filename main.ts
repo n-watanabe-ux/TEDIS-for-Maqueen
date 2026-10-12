@@ -279,7 +279,7 @@ namespace tedis {
         )
     }
 
-    //% block="タッチセンサー が押されている"
+    //% block="タッチセンサー が押された"
     //% group="タッチセンサー"
     //% blockId=tedis_touch_pressed
     export function touchPressed(): boolean {
