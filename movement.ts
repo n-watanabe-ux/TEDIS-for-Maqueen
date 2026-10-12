@@ -2,9 +2,10 @@
  * TEDIS for Maqueen - basic movement blocks
  * Target: DFRobot Maqueen Plus V3 using the official maqueenPlusV2 extension.
  *
- * This first implementation includes timed and continuous Tank/Steering movement.
- * Encoder-count movement is intentionally not included until a reliable public API
- * for per-wheel cumulative encoder counts is confirmed.
+ * Timed and continuous Tank/Steering movement.
+ * Angle mode estimates wheel rotation by integrating the absolute per-wheel
+ * linear-speed readings reported by the Maqueen controller.
+ * Wheel diameter is assumed to be 43 mm.
  */
 //% color="#4C8C6B" icon="\uf1b9" block="移動"
 namespace tedisMove {
@@ -53,7 +54,7 @@ namespace tedisMove {
         )
     }
 
-    /** Start Tank movement with independent left/right forward speed percentages. */
+    /** Start Tank movement with independent left/right signed speed percentages. */
     function startTank(leftSpeed: number, rightSpeed: number): void {
         ensureInitialized()
         setMotor(maqueenPlusV2.MyEnumMotor.LeftMotor, leftSpeed)
@@ -79,14 +80,19 @@ namespace tedisMove {
     }
 
     /**
-     * Run the currently commanded movement until the faster wheel has travelled
-     * the distance corresponding to the requested wheel angle. Speeds are read
-     * separately for the left and right wheels from the Maqueen controller.
-     * Wheel diameter is fixed at 43 mm (4.3 cm).
+     * Run until the wheel that travels farthest reaches the requested rotation angle.
+     * This reference works for both Tank and Steering movement: the inner/slower
+     * wheel does not prematurely end a turn, and a wheel rotating backward still
+     * contributes positively to its rotation amount.
+     *
+     * The controller reports linear speed in cm/s. Integrating its absolute value
+     * estimates each wheel's travelled distance. Wheel diameter is fixed at 43 mm.
+     * This is an estimate, not a direct encoder-count measurement.
      */
     function runForWheelAngle(angle: number): void {
         const wheelDiameterCm = 4.3
         const targetDistanceCm = Math.PI * wheelDiameterCm * Math.max(0, angle) / 360
+
         let leftDistance = 0
         let rightDistance = 0
         let previousTime = input.runningTime()
@@ -97,10 +103,17 @@ namespace tedisMove {
             const now = input.runningTime()
             const elapsedSeconds = Math.max(0, now - previousTime) / 1000
             previousTime = now
-            const leftSpeed = maqueenPlusV2.readRealTimeSpeed(maqueenPlusV2.DirectionType2.Left)
-            const rightSpeed = maqueenPlusV2.readRealTimeSpeed(maqueenPlusV2.DirectionType2.Right)
+
+            const leftSpeed = Math.abs(
+                maqueenPlusV2.readRealTimeSpeed(maqueenPlusV2.DirectionType2.Left)
+            )
+            const rightSpeed = Math.abs(
+                maqueenPlusV2.readRealTimeSpeed(maqueenPlusV2.DirectionType2.Right)
+            )
+
             leftDistance += leftSpeed * elapsedSeconds
             rightDistance += rightSpeed * elapsedSeconds
+
             if (leftSpeed > 0 || rightSpeed > 0) {
                 lastMotionTime = now
             } else if (now - lastMotionTime > 2000) {
@@ -130,11 +143,11 @@ namespace tedisMove {
         maqueenPlusV2.controlMotorStop(maqueenPlusV2.MyEnumMotor.AllMotor)
     }
 
-    /** Tank drive for a specified number of seconds. */
+    /** Tank drive for a specified number of seconds or wheel rotation angle. */
     //% block="移動 左 %leftSpeed 右 %rightSpeed の速度で %amount %unit"
     //% inlineInputMode=inline
-    //% leftSpeed.min=0 leftSpeed.max=100 leftSpeed.defl=50
-    //% rightSpeed.min=0 rightSpeed.max=100 rightSpeed.defl=50
+    //% leftSpeed.min=-100 leftSpeed.max=100 leftSpeed.defl=50
+    //% rightSpeed.min=-100 rightSpeed.max=100 rightSpeed.defl=50
     //% amount.min=0 amount.max=3600 amount.defl=1
     //% unit.defl=0
     //% group="タンク"
@@ -146,15 +159,15 @@ namespace tedisMove {
 
     /** Tank drive continuously until the stop block is called. */
     //% block="移動 左 %leftSpeed 右 %rightSpeed の速度で連続"
-    //% leftSpeed.min=0 leftSpeed.max=100 leftSpeed.defl=50
-    //% rightSpeed.min=0 rightSpeed.max=100 rightSpeed.defl=50
+    //% leftSpeed.min=-100 leftSpeed.max=100 leftSpeed.defl=50
+    //% rightSpeed.min=-100 rightSpeed.max=100 rightSpeed.defl=50
     //% group="タンク"
     //% weight=19
     export function tankOn(leftSpeed: number, rightSpeed: number): void {
         startTank(leftSpeed, rightSpeed)
     }
 
-    /** Steering drive for a specified number of seconds. */
+    /** Steering drive for a specified number of seconds or wheel rotation angle. */
     //% block="移動 方向 %steering 速度 %speed で %amount %unit"
     //% inlineInputMode=inline
     //% steering.min=-100 steering.max=100 steering.defl=0
@@ -178,4 +191,5 @@ namespace tedisMove {
         startSteering(steering, speed)
     }
 }
+
 
