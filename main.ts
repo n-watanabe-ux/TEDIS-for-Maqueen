@@ -267,6 +267,18 @@ namespace tedis {
         return (readRegister(STATUS) & 0x01) != 0
     }
 
+    /**
+     * Maqueen Plusの超音波センサーで距離を取得
+     */
+    //% block="超音波センサー 距離 (cm)"
+    //% group="超音波センサー"
+    export function ultrasonicDistance(): number {
+        return maqueenPlusV2.readUltrasonic(
+            maqueenPlusV2.DigitalPin.P13,
+            maqueenPlusV2.DigitalPin.P14
+        )
+    }
+    
     //% block="タッチセンサー が押された"
     //% group="タッチセンサー"
     //% blockId=tedis_touch_pressed
