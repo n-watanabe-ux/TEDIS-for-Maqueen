@@ -307,4 +307,15 @@ namespace tedis {
         }
         return 0
     }
+
+    //% block="L1"
+    //% blockHidden=true
+    export enum LineSensor {
+        //% block="L1"
+        L1,
+        //% block="M"
+        M,
+        //% block="R1"
+        R1
+    }
 }
