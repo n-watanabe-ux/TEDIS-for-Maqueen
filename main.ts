@@ -289,33 +289,5 @@ namespace tedis {
 
     //% block="ラインセンサー %sensor の値"
     //% group="ラインセンサー"
-    //% blockId=tedis_line_sensor_value
-    export function lineSensorValue(sensor: LineSensor): number {
-        switch (sensor) {
-            case LineSensor.L1:
-                return maqueenPlusV2.readLineSensorData(
-                    maqueenPlusV2.MyEnumLineSensor.SensorL1
-                )
-            case LineSensor.M:
-                return maqueenPlusV2.readLineSensorData(
-                    maqueenPlusV2.MyEnumLineSensor.SensorM
-                )
-            case LineSensor.R1:
-                return maqueenPlusV2.readLineSensorData(
-                    maqueenPlusV2.MyEnumLineSensor.SensorR1
-                )
-        }
-        return 0
-    }
 
-    //% block="L1"
-    //% blockHidden=true
-    export enum LineSensor {
-        //% block="L1"
-        L1,
-        //% block="M"
-        M,
-        //% block="R1"
-        R1
-    }
 }
