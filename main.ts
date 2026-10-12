@@ -287,7 +287,7 @@ namespace tedis {
         return pins.digitalReadPin(DigitalPin.P8) == 0
     }
 
-    //% block="ラインセンサー（%sensor）の値"
+    //% block="ラインセンサー %sensor の値"
     //% group="ラインセンサー"
     //% blockId=tedis_line_sensor_value
     export function lineSensorValue(sensor: LineSensor): number {
