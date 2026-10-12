@@ -274,8 +274,8 @@ namespace tedis {
     //% group="超音波センサー"
     export function ultrasonicDistance(): number {
         return maqueenPlusV2.readUltrasonic(
-            maqueenPlusV2.DigitalPin.P?,
-            maqueenPlusV2.DigitalPin.P?
+            maqueenPlusV2.DigitalPin.P13,
+            maqueenPlusV2.DigitalPin.P14
         )
     }
 
