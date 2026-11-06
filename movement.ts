@@ -78,37 +78,9 @@ namespace tedisMove {
         setMotor(maqueenPlusV2.MyEnumMotor.RightMotor, right)
     }
 
-    /** 距離を安全に取得するヘルパー関数 */
-    function getDistance(isLeft: boolean): number {
-        // 公式ライブラリ内部のレジスタ/関数を any キャストで安全に呼び出し
-        const mp = maqueenPlusV2 as any
-        try {
-            if (typeof mp.readDistance === "function") {
-                // DirectionType1, DirectionType, DirectionType2 のいずれのEnum値でも
-                // 内部では Left=1 (または 0), Right=2 (または 1) として扱われます
-                const dir = isLeft ? (mp.DirectionType1 ? mp.DirectionType1.Left : (mp.DirectionType ? mp.DirectionType.Left : 1))
-                                   : (mp.DirectionType1 ? mp.DirectionType1.Right : (mp.DirectionType ? mp.DirectionType.Right : 2))
-                return Number(mp.readDistance(dir)) || 0
-            }
-        } catch (e) {
-            // エラー時はフォールバック
-        }
-        return 0
-    }
-
-    /** 距離カウンターを安全にクリアするヘルパー関数 */
-    function clearEncoders(): void {
-        const mp = maqueenPlusV2 as any
-        try {
-            if (typeof mp.clearDistance === "function") {
-                const dirAll = mp.DirectionType1 ? (mp.DirectionType1.All || 3) : (mp.DirectionType ? (mp.DirectionType.All || 3) : 3)
-                mp.clearDistance(dirAll)
-            }
-        } catch (e) {}
-    }
-
     /**
      * Run until the wheel that travels farthest reaches the requested rotation angle.
+     * 元コードと全く同一のAPIのみを使用し、加減速の補間（平均値算定）で角度精度を改善
      */
     function runForWheelAngle(angle: number): void {
         if (angle <= 0) {
@@ -119,44 +91,33 @@ namespace tedisMove {
         const wheelDiameterCm = 4.3
         const targetDistanceCm = (Math.PI * wheelDiameterCm * angle) / 360
 
-        // 開始前の値を退避
-        const startLeft = getDistance(true)
-        const startRight = getDistance(false)
+        let leftDistance = 0
+        let rightDistance = 0
+
+        let prevLeftSpeed = Math.abs(maqueenPlusV2.readRealTimeSpeed(maqueenPlusV2.DirectionType2.Left))
+        let prevRightSpeed = Math.abs(maqueenPlusV2.readRealTimeSpeed(maqueenPlusV2.DirectionType2.Right))
 
         let previousTime = input.runningTime()
         let lastMotionTime = previousTime
 
-        // 万が一 readDistance が非対応（常に0を返す）の場合のバックアップ速度積分用
-        let leftIntegDist = 0
-        let rightIntegDist = 0
-
-        while (true) {
+        while (Math.max(leftDistance, rightDistance) < targetDistanceCm) {
             basic.pause(10)
+
             const now = input.runningTime()
             const dt = (now - previousTime) / 1000
             previousTime = now
 
-            // 1. エンコーダー直接距離の差分
-            const curLeft = getDistance(true)
-            const curRight = getDistance(false)
-            const dLeftDirect = Math.abs(curLeft - startLeft)
-            const dRightDirect = Math.abs(curRight - startRight)
+            const curLeftSpeed = Math.abs(maqueenPlusV2.readRealTimeSpeed(maqueenPlusV2.DirectionType2.Left))
+            const curRightSpeed = Math.abs(maqueenPlusV2.readRealTimeSpeed(maqueenPlusV2.DirectionType2.Right))
 
-            // 2. バックアップとしての速度積算
-            const spdLeft = Math.abs(maqueenPlusV2.readRealTimeSpeed(maqueenPlusV2.DirectionType2.Left))
-            const spdRight = Math.abs(maqueenPlusV2.readRealTimeSpeed(maqueenPlusV2.DirectionType2.Right))
-            leftIntegDist += spdLeft * dt
-            rightIntegDist += spdRight * dt
+            // 前回と今回の平均速度を用いて積算（加速・減速時の誤差を緩和）
+            leftDistance += ((prevLeftSpeed + curLeftSpeed) / 2) * dt
+            rightDistance += ((prevRightSpeed + curRightSpeed) / 2) * dt
 
-            // readDistance が正しく動いていればそれを使用、値が取れなければ速度積分を採用
-            const effectiveLeft = (curLeft !== 0 || curRight !== 0) ? dLeftDirect : leftIntegDist
-            const effectiveRight = (curLeft !== 0 || curRight !== 0) ? dRightDirect : rightIntegDist
+            prevLeftSpeed = curLeftSpeed
+            prevRightSpeed = curRightSpeed
 
-            if (Math.max(effectiveLeft, effectiveRight) >= targetDistanceCm) {
-                break
-            }
-
-            if (spdLeft > 0 || spdRight > 0 || effectiveLeft > 0 || effectiveRight > 0) {
+            if (curLeftSpeed > 0 || curRightSpeed > 0) {
                 lastMotionTime = now
             } else if (now - lastMotionTime > 2000) {
                 break
