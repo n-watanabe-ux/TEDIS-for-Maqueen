@@ -3,8 +3,8 @@
  * Target: DFRobot Maqueen Plus V3 using the official maqueenPlusV2 extension.
  *
  * Timed and continuous Tank/Steering movement.
- * Angle mode estimates wheel rotation by integrating the absolute per-wheel
- * linear-speed readings reported by the Maqueen controller.
+ * Angle mode measures wheel rotation directly using the Maqueen controller's
+ * cumulative distance readings instead of speed integration.
  * Wheel diameter is assumed to be 43 mm.
  */
 //% color="#4C8C6B" icon="\uf1b9" block="TEDIS移動"
@@ -81,43 +81,42 @@ namespace tedisMove {
 
     /**
      * Run until the wheel that travels farthest reaches the requested rotation angle.
-     * This reference works for both Tank and Steering movement: the inner/slower
-     * wheel does not prematurely end a turn, and a wheel rotating backward still
-     * contributes positively to its rotation amount.
-     *
-     * The controller reports linear speed in cm/s. Integrating its absolute value
-     * estimates each wheel's travelled distance. Wheel diameter is fixed at 43 mm.
-     * This is an estimate, not a direct encoder-count measurement.
+     * Uses cumulative distance (cm) read from the controller to avoid integration error.
      */
     function runForWheelAngle(angle: number): void {
+        if (angle <= 0) {
+            stop()
+            return
+        }
+
         const wheelDiameterCm = 4.3
-        const targetDistanceCm = Math.PI * wheelDiameterCm * Math.max(0, angle) / 360
+        const targetDistanceCm = Math.PI * wheelDiameterCm * angle / 360
 
-        let leftDistance = 0
-        let rightDistance = 0
-        let previousTime = input.runningTime()
-        let lastMotionTime = previousTime
+        // 開始時点の積算距離を取得
+        const startLeft = maqueenPlusV2.readDistance(maqueenPlusV2.DirectionType.Left)
+        const startRight = maqueenPlusV2.readDistance(maqueenPlusV2.DirectionType.Right)
 
-        while (Math.max(leftDistance, rightDistance) < targetDistanceCm) {
-            basic.pause(20)
-            const now = input.runningTime()
-            const elapsedSeconds = Math.max(0, now - previousTime) / 1000
-            previousTime = now
+        let startWait = input.runningTime()
 
-            const leftSpeed = Math.abs(
-                maqueenPlusV2.readRealTimeSpeed(maqueenPlusV2.DirectionType2.Left)
-            )
-            const rightSpeed = Math.abs(
-                maqueenPlusV2.readRealTimeSpeed(maqueenPlusV2.DirectionType2.Right)
-            )
+        while (true) {
+            basic.pause(10)
 
-            leftDistance += leftSpeed * elapsedSeconds
-            rightDistance += rightSpeed * elapsedSeconds
+            // 現在の積算距離から移動量を算出
+            const currentLeft = maqueenPlusV2.readDistance(maqueenPlusV2.DirectionType.Left)
+            const currentRight = maqueenPlusV2.readDistance(maqueenPlusV2.DirectionType.Right)
 
-            if (leftSpeed > 0 || rightSpeed > 0) {
-                lastMotionTime = now
-            } else if (now - lastMotionTime > 2000) {
-                // Avoid waiting forever if both motors are stopped or speed data is unavailable.
+            const leftMoved = Math.abs(currentLeft - startLeft)
+            const rightMoved = Math.abs(currentRight - startRight)
+
+            // 移動量が目標距離に到達したら抜ける
+            if (Math.max(leftMoved, rightMoved) >= targetDistanceCm) {
+                break
+            }
+
+            // モーターが動いていない／データ更新がない場合のタイムアウト（2秒）
+            if (leftMoved > 0 || rightMoved > 0) {
+                startWait = input.runningTime()
+            } else if (input.runningTime() - startWait > 2000) {
                 break
             }
         }
@@ -191,4 +190,4 @@ namespace tedisMove {
         startSteering(steering, speed)
     }
 }
-
+組み込み時の注意点
