@@ -89,40 +89,92 @@ namespace tedisMove {
      * estimates each wheel's travelled distance. Wheel diameter is fixed at 43 mm.
      * This is an estimate, not a direct encoder-count measurement.
      */
-    function runForWheelAngle(angle: number): void {　　
-        const wheelDiameterCm = 4.3
-        const targetDistanceCm = Math.PI * wheelDiameterCm * Math.max(0, angle) / 360
+/**
+ * 指定角度まで走行し、デバッグ情報をシリアル出力する
+ */
+function runForWheelAngle(angle: number): void {
+    const wheelDiameterCm = 4.3
+    const targetDistanceCm =
+        Math.PI * wheelDiameterCm * Math.max(0, angle) / 360
 
-        let leftDistance = 0
-        let rightDistance = 0
-        let previousTime = input.runningTime()
-        let lastMotionTime = previousTime
+    let leftDistance = 0
+    let rightDistance = 0
 
-        while (Math.max(leftDistance, rightDistance) < targetDistanceCm) {
-            basic.pause(20)
-            const now = input.runningTime()
-            const elapsedSeconds = Math.max(0, now - previousTime) / 1000
-            previousTime = now
+    let startTime = input.runningTime()
+    let previousTime = startTime
+    let lastMotionTime = startTime
+    let lastLogTime = startTime
 
-            const leftSpeed = Math.abs(
-                maqueenPlusV2.readRealTimeSpeed(maqueenPlusV2.DirectionType2.Left)
+    let leftSpeed = 0
+    let rightSpeed = 0
+
+    // 計測開始
+    serial.writeLine("=== START ===")
+    serial.writeLine("Target angle: " + angle)
+
+    while (Math.max(leftDistance, rightDistance) < targetDistanceCm) {
+        basic.pause(20)
+
+        const now = input.runningTime()
+        const elapsedSeconds =
+            Math.max(0, now - previousTime) / 1000
+
+        previousTime = now
+
+        // 左右の速度を取得
+        leftSpeed = Math.abs(
+            maqueenPlusV2.readRealTimeSpeed(
+                maqueenPlusV2.DirectionType2.Left
             )
-            const rightSpeed = Math.abs(
-                maqueenPlusV2.readRealTimeSpeed(maqueenPlusV2.DirectionType2.Right)
+        )
+
+        rightSpeed = Math.abs(
+            maqueenPlusV2.readRealTimeSpeed(
+                maqueenPlusV2.DirectionType2.Right
             )
+        )
 
-            leftDistance += leftSpeed * elapsedSeconds
-            rightDistance += rightSpeed * elapsedSeconds
+        // 走行距離を積算
+        leftDistance += leftSpeed * elapsedSeconds
+        rightDistance += rightSpeed * elapsedSeconds
 
-            if (leftSpeed > 0 || rightSpeed > 0) {
-                lastMotionTime = now
-            } else if (now - lastMotionTime > 2000) {
-                // Avoid waiting forever if both motors are stopped or speed data is unavailable.
-                break
-            }
+        // 動作状態を確認
+        if (leftSpeed > 0 || rightSpeed > 0) {
+            lastMotionTime = now
+        } else if (now - lastMotionTime > 2000) {
+            break
         }
-        stop()
+
+        // 200msごとに途中経過を出力
+        if (now - lastLogTime >= 200) {
+            serial.writeLine(
+                "t=" + (now - startTime) +
+                "ms Lspd=" + leftSpeed +
+                " Rspd=" + rightSpeed +
+                " Ldist=" + leftDistance +
+                " Rdist=" + rightDistance
+            )
+
+            lastLogTime = now
+        }
     }
+
+    // 停止
+    stop()
+
+    // 停止時の最終データ
+    const totalTime = input.runningTime() - startTime
+
+    serial.writeLine("=== STOP ===")
+    serial.writeLine(
+        "Target angle: " + angle +
+        " Lspd=" + leftSpeed +
+        " Rspd=" + rightSpeed +
+        " Ldist=" + leftDistance +
+        " Rdist=" + rightDistance +
+        " Time=" + totalTime + "ms"
+    )
+}
 
     /** Run for either the specified time or the wheel rotation angle. */
     function runForUnit(unit: MoveUnit, amount: number): void {
