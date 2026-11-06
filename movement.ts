@@ -4,7 +4,6 @@
  * https://makecode.microbit.org/pkg/dfrobot/pxt-dfrobot_maqueenplus_v20
  *
  * Timed and continuous Tank/Steering movement.
- * Angle mode uses official hardware encoder distance measurement directly.
  * Wheel diameter is assumed to be 43 mm.
  */
 //% color="#4C8C6B" icon="\uf1b9" block="TEDIS移動"
@@ -22,7 +21,7 @@ namespace tedisMove {
     /** Ensure the official Maqueen Plus extension has initialized its I2C controller. */
     function ensureInitialized(): void {
         if (!initialized) {
-            maqueenPlusV2.i2cInit()
+            maqueenPlusV2.I2CInit()
             initialized = true
         }
     }
@@ -79,9 +78,37 @@ namespace tedisMove {
         setMotor(maqueenPlusV2.MyEnumMotor.RightMotor, right)
     }
 
+    /** 距離を安全に取得するヘルパー関数 */
+    function getDistance(isLeft: boolean): number {
+        // 公式ライブラリ内部のレジスタ/関数を any キャストで安全に呼び出し
+        const mp = maqueenPlusV2 as any
+        try {
+            if (typeof mp.readDistance === "function") {
+                // DirectionType1, DirectionType, DirectionType2 のいずれのEnum値でも
+                // 内部では Left=1 (または 0), Right=2 (または 1) として扱われます
+                const dir = isLeft ? (mp.DirectionType1 ? mp.DirectionType1.Left : (mp.DirectionType ? mp.DirectionType.Left : 1))
+                                   : (mp.DirectionType1 ? mp.DirectionType1.Right : (mp.DirectionType ? mp.DirectionType.Right : 2))
+                return Number(mp.readDistance(dir)) || 0
+            }
+        } catch (e) {
+            // エラー時はフォールバック
+        }
+        return 0
+    }
+
+    /** 距離カウンターを安全にクリアするヘルパー関数 */
+    function clearEncoders(): void {
+        const mp = maqueenPlusV2 as any
+        try {
+            if (typeof mp.clearDistance === "function") {
+                const dirAll = mp.DirectionType1 ? (mp.DirectionType1.All || 3) : (mp.DirectionType ? (mp.DirectionType.All || 3) : 3)
+                mp.clearDistance(dirAll)
+            }
+        } catch (e) {}
+    }
+
     /**
      * Run until the wheel that travels farthest reaches the requested rotation angle.
-     * Clears and reads hardware cumulative distance directly from the controller.
      */
     function runForWheelAngle(angle: number): void {
         if (angle <= 0) {
@@ -92,28 +119,46 @@ namespace tedisMove {
         const wheelDiameterCm = 4.3
         const targetDistanceCm = (Math.PI * wheelDiameterCm * angle) / 360
 
-        // 走行開始前に距離カウンターをクリア
-        maqueenPlusV2.clearDistance(maqueenPlusV2.DirectionType1.Left)
-        maqueenPlusV2.clearDistance(maqueenPlusV2.DirectionType1.Right)
+        // 開始前の値を退避
+        const startLeft = getDistance(true)
+        const startRight = getDistance(false)
 
-        let startWait = input.runningTime()
+        let previousTime = input.runningTime()
+        let lastMotionTime = previousTime
+
+        // 万が一 readDistance が非対応（常に0を返す）の場合のバックアップ速度積分用
+        let leftIntegDist = 0
+        let rightIntegDist = 0
 
         while (true) {
             basic.pause(10)
+            const now = input.runningTime()
+            const dt = (now - previousTime) / 1000
+            previousTime = now
 
-            // DirectionType1 を指定して距離(cm)を取得
-            const leftDistance = Math.abs(maqueenPlusV2.readDistance(maqueenPlusV2.DirectionType1.Left))
-            const rightDistance = Math.abs(maqueenPlusV2.readDistance(maqueenPlusV2.DirectionType1.Right))
+            // 1. エンコーダー直接距離の差分
+            const curLeft = getDistance(true)
+            const curRight = getDistance(false)
+            const dLeftDirect = Math.abs(curLeft - startLeft)
+            const dRightDirect = Math.abs(curRight - startRight)
 
-            // 目標距離に到達したらループを抜けて停止
-            if (Math.max(leftDistance, rightDistance) >= targetDistanceCm) {
+            // 2. バックアップとしての速度積算
+            const spdLeft = Math.abs(maqueenPlusV2.readRealTimeSpeed(maqueenPlusV2.DirectionType2.Left))
+            const spdRight = Math.abs(maqueenPlusV2.readRealTimeSpeed(maqueenPlusV2.DirectionType2.Right))
+            leftIntegDist += spdLeft * dt
+            rightIntegDist += spdRight * dt
+
+            // readDistance が正しく動いていればそれを使用、値が取れなければ速度積分を採用
+            const effectiveLeft = (curLeft !== 0 || curRight !== 0) ? dLeftDirect : leftIntegDist
+            const effectiveRight = (curLeft !== 0 || curRight !== 0) ? dRightDirect : rightIntegDist
+
+            if (Math.max(effectiveLeft, effectiveRight) >= targetDistanceCm) {
                 break
             }
 
-            // タイムアウト保護（モーター停止や取得不能で無限ループするのを防止）
-            if (leftDistance > 0 || rightDistance > 0) {
-                startWait = input.runningTime()
-            } else if (input.runningTime() - startWait > 2000) {
+            if (spdLeft > 0 || spdRight > 0 || effectiveLeft > 0 || effectiveRight > 0) {
+                lastMotionTime = now
+            } else if (now - lastMotionTime > 2000) {
                 break
             }
         }
