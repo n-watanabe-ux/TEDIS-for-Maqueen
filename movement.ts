@@ -1,9 +1,10 @@
 /**
  * TEDIS for Maqueen - basic movement blocks
  * Target: DFRobot Maqueen Plus V3 using the official maqueenPlusV2 extension.
- * https://makecode.microbit.org/pkg/dfrobot/pxt-dfrobot_maqueenplus_v20
  *
  * Timed and continuous Tank/Steering movement.
+ * Angle mode estimates wheel rotation by integrating the absolute per-wheel
+ * linear-speed readings reported by the Maqueen controller.
  * Wheel diameter is assumed to be 43 mm.
  */
 //% color="#4C8C6B" icon="\uf1b9" block="TEDIS移動"
@@ -80,46 +81,43 @@ namespace tedisMove {
 
     /**
      * Run until the wheel that travels farthest reaches the requested rotation angle.
-     * 元コードと全く同一のAPIのみを使用し、加減速の補間（平均値算定）で角度精度を改善
+     * This reference works for both Tank and Steering movement: the inner/slower
+     * wheel does not prematurely end a turn, and a wheel rotating backward still
+     * contributes positively to its rotation amount.
+     *
+     * The controller reports linear speed in cm/s. Integrating its absolute value
+     * estimates each wheel's travelled distance. Wheel diameter is fixed at 43 mm.
+     * This is an estimate, not a direct encoder-count measurement.
      */
     function runForWheelAngle(angle: number): void {
-        if (angle <= 0) {
-            stop()
-            return
-        }
-
         const wheelDiameterCm = 4.3
-        const targetDistanceCm = (Math.PI * wheelDiameterCm * angle) / 360
+        const targetDistanceCm = Math.PI * wheelDiameterCm * Math.max(0, angle) / 360
 
         let leftDistance = 0
         let rightDistance = 0
-
-        let prevLeftSpeed = Math.abs(maqueenPlusV2.readRealTimeSpeed(maqueenPlusV2.DirectionType2.Left))
-        let prevRightSpeed = Math.abs(maqueenPlusV2.readRealTimeSpeed(maqueenPlusV2.DirectionType2.Right))
-
         let previousTime = input.runningTime()
         let lastMotionTime = previousTime
 
         while (Math.max(leftDistance, rightDistance) < targetDistanceCm) {
-            basic.pause(10)
-
+            basic.pause(20)
             const now = input.runningTime()
-            const dt = (now - previousTime) / 1000
+            const elapsedSeconds = Math.max(0, now - previousTime) / 1000
             previousTime = now
 
-            const curLeftSpeed = Math.abs(maqueenPlusV2.readRealTimeSpeed(maqueenPlusV2.DirectionType2.Left))
-            const curRightSpeed = Math.abs(maqueenPlusV2.readRealTimeSpeed(maqueenPlusV2.DirectionType2.Right))
+            const leftSpeed = Math.abs(
+                maqueenPlusV2.readRealTimeSpeed(maqueenPlusV2.DirectionType2.Left)
+            )
+            const rightSpeed = Math.abs(
+                maqueenPlusV2.readRealTimeSpeed(maqueenPlusV2.DirectionType2.Right)
+            )
 
-            // 前回と今回の平均速度を用いて積算（加速・減速時の誤差を緩和）
-            leftDistance += ((prevLeftSpeed + curLeftSpeed) / 2) * dt
-            rightDistance += ((prevRightSpeed + curRightSpeed) / 2) * dt
+            leftDistance += leftSpeed * elapsedSeconds
+            rightDistance += rightSpeed * elapsedSeconds
 
-            prevLeftSpeed = curLeftSpeed
-            prevRightSpeed = curRightSpeed
-
-            if (curLeftSpeed > 0 || curRightSpeed > 0) {
+            if (leftSpeed > 0 || rightSpeed > 0) {
                 lastMotionTime = now
             } else if (now - lastMotionTime > 2000) {
+                // Avoid waiting forever if both motors are stopped or speed data is unavailable.
                 break
             }
         }
