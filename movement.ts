@@ -91,7 +91,8 @@ namespace tedisMove {
      */
     function runForWheelAngle(angle: number): void {
         const wheelDiameterCm = 4.3
-        const targetDistanceCm = Math.PI * wheelDiameterCm * Math.max(0, angle) / 360
+        const angleCorrection = 0.8571
+        const targetDistanceCm = Math.PI * wheelDiameterCm * Math.max(0, angle) / 360 * angleCorrection
 
         let leftDistance = 0
         let rightDistance = 0
