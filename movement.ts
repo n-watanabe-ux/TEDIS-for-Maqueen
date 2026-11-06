@@ -89,9 +89,10 @@ namespace tedisMove {
      * estimates each wheel's travelled distance. Wheel diameter is fixed at 43 mm.
      * This is an estimate, not a direct encoder-count measurement.
      */
-    function runForWheelAngle(angle: number): void {
+    function runForWheelAngle(angle: number): void {　　
         const wheelDiameterCm = 4.3
-        const targetDistanceCm = Math.PI * wheelDiameterCm * Math.max(0, angle) / 360
+        const angleCorrection = 0.8571
+        const targetDistanceCm = Math.PI * wheelDiameterCm * Math.max(0, angle) / 360 * angleCorrection
 
         let leftDistance = 0
         let rightDistance = 0
