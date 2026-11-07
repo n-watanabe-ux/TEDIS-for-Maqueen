@@ -377,6 +377,34 @@ function runForWheelAngleDecel(
         }
     }
 
+    /**
+     * Official PID distance test.
+     * Straight movement only.
+     */
+    //% block="距離PIDテスト 方向 %direction 距離 %distance cm"
+    //% distance.min=1 distance.max=1000 distance.defl=10
+    //% group="実験"
+    //% weight=10
+    export function testDistancePID(
+        direction: maqueenPlusV2.SpeedDirection,
+        distance: number
+    ): void {
+
+        ensureInitialized()
+
+        // Execute official distance PID and wait for completion.
+        maqueenPlusV2.pidControlDistance(
+            direction,
+            Math.max(1, distance),
+            maqueenPlusV2.MyInterruption.NotAllowed
+        )
+
+        // Explicitly stop both motors.
+        maqueenPlusV2.controlMotorStop(
+            maqueenPlusV2.MyEnumMotor.AllMotor
+        )
+    }
+    
     /** Stop both motors. */
     //% block="移動を停止"
     //% group="停止"
