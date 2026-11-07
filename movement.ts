@@ -258,7 +258,8 @@ function runForWheelAngleDecel(
     )
 
     // 初期速度を設定
-    setMotor(leftBase, rightBase)
+    setMotor(maqueenPlusV2.MyEnumMotor.LeftMotor, leftBase)
+    setMotor(maqueenPlusV2.MyEnumMotor.RightMotor, rightBase)
 
     while (Math.max(leftDistance, rightDistance) < targetDistanceCm) {
 
