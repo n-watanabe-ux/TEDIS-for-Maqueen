@@ -231,6 +231,7 @@ namespace tedisMove {
      * Both motors are reduced by the same ratio,
      * preserving the original steering ratio.
      */
+さい。
 function runForWheelAngleDecel(
     angle: number,
     leftBase: number,
@@ -261,8 +262,15 @@ function runForWheelAngleDecel(
     setMotor(leftBase, rightBase)
 
     while (Math.max(leftDistance, rightDistance) < targetDistanceCm) {
-        let travelledDistance = Math.max(leftDistance, rightDistance)
-        let remainingDistance = targetDistanceCm - travelledDistance
+
+        // 残り距離・残り角度を計算
+        let travelledDistance = Math.max(
+            leftDistance,
+            rightDistance
+        )
+
+        let remainingDistance =
+            targetDistanceCm - travelledDistance
 
         let remainingAngle =
             remainingDistance / (Math.PI * wheelDiameter) * 360
@@ -272,6 +280,7 @@ function runForWheelAngleDecel(
 
         // 減速計算
         if (remainingAngle < decelerationStartAngle) {
+
             let progress =
                 (decelerationStartAngle - remainingAngle) /
                 decelerationStartAngle
@@ -294,6 +303,7 @@ function runForWheelAngleDecel(
             }
         }
 
+        // モーターへの速度指令
         let commandLeft = leftBase * speedScale
         let commandRight = rightBase * speedScale
 
@@ -301,23 +311,38 @@ function runForWheelAngleDecel(
 
         basic.pause(20)
 
+        // 経過時間
         let currentTime = input.runningTime()
-        let elapsedSeconds = (currentTime - previousTime) / 1000
+        let elapsedSeconds =
+            (currentTime - previousTime) / 1000
+
         previousTime = currentTime
 
-        // 実測速度を取得
-        leftSpeed = Math.abs(readRealTimeSpeed(true))
-        rightSpeed = Math.abs(readRealTimeSpeed(false))
+        // 左右の実測速度を取得（cm/s）
+        leftSpeed = Math.abs(
+            maqueenPlusV2.readRealTimeSpeed(
+                maqueenPlusV2.DirectionType2.Left
+            )
+        )
 
+        rightSpeed = Math.abs(
+            maqueenPlusV2.readRealTimeSpeed(
+                maqueenPlusV2.DirectionType2.Right
+            )
+        )
+
+        // 移動距離を積算
         leftDistance += leftSpeed * elapsedSeconds
         rightDistance += rightSpeed * elapsedSeconds
 
+        // 動作状態を確認
         if (leftSpeed > 0 || rightSpeed > 0) {
             lastMotionTime = currentTime
         }
 
-        // 100msごとにログ出力
+        // 100msごとにシリアル出力
         if (currentTime - lastLogTime >= 100) {
+
             serial.writeLine(
                 "t=" + currentTime +
                 " rem=" + remainingAngle +
@@ -331,11 +356,15 @@ function runForWheelAngleDecel(
             lastLogTime = currentTime
         }
 
-        // 停止判定
+        // 2秒間動作が検出されなければ中断
         if (currentTime - lastMotionTime > 2000) {
             break
         }
     }
+
+    // 停止
+    stop()
+}
 
     stop()
 }
