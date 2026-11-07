@@ -377,32 +377,59 @@ function runForWheelAngleDecel(
         }
     }
 
-    /**
-     * Official PID distance test.
-     * Straight movement only.
-     */
-    //% block="距離PIDテスト 方向 %direction 距離 %distance cm"
-    //% distance.min=1 distance.max=1000 distance.defl=10
-    //% group="実験"
-    //% weight=10
+    // PID distance control with selectable speed
     export function testDistancePID(
         direction: maqueenPlusV2.SpeedDirection,
+        speed: number,
         distance: number
     ): void {
-
         ensureInitialized()
 
-        // Execute official distance PID and wait for completion.
-        maqueenPlusV2.pidControlDistance(
-            direction,
-            Math.max(1, distance),
-            maqueenPlusV2.MyInterruption.NotAllowed
-        )
+        // Official Taiwan extension uses PatrolSpeed 1-5
+        speed = Math.max(1, Math.min(5, Math.round(speed)))
+        distance = Math.max(1, Math.round(distance))
 
-        // Explicitly stop both motors.
-        maqueenPlusV2.controlMotorStop(
-            maqueenPlusV2.MyEnumMotor.AllMotor
-        )
+        let buffer = pins.createBuffer(2)
+
+        if (distance >= 6000) {
+            distance = 60000
+        }
+
+        // Direction
+        buffer[0] = 64
+        buffer[1] = direction
+        pins.i2cWriteBuffer(0x10, buffer)
+
+        // PID speed
+        buffer[0] = 85
+        buffer[1] = speed
+        pins.i2cWriteBuffer(0x10, buffer)
+
+        // Distance high byte
+        buffer[0] = 65
+        buffer[1] = distance >> 8
+        pins.i2cWriteBuffer(0x10, buffer)
+
+        // Distance low byte
+        buffer[0] = 66
+        buffer[1] = distance
+        pins.i2cWriteBuffer(0x10, buffer)
+
+        // Start PID distance control
+        buffer[0] = 60
+        buffer[1] = 0x04 | 0x02
+        pins.i2cWriteBuffer(0x10, buffer)
+
+        // Wait until PID control finishes
+        pins.i2cWriteNumber(0x10, 87, NumberFormat.Int8LE)
+
+        let flagBuffer = pins.createBuffer(1)
+        flagBuffer = pins.i2cReadBuffer(0x10, 1)
+
+        while (flagBuffer[0] == 1) {
+            basic.pause(10)
+            flagBuffer = pins.i2cReadBuffer(0x10, 1)
+        }
     }
     
     /** Stop both motors. */
