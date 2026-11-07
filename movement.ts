@@ -439,7 +439,7 @@ function runForWheelAngleDecel(
         // 左右のモーターを停止
         stop()
     }
-
+    
         // Explicitly stop both motors.
         maqueenPlusV2.controlMotorStop(
             maqueenPlusV2.MyEnumMotor.AllMotor
