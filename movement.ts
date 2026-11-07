@@ -1,30 +1,35 @@
-
 /**
  * TEDIS for Maqueen - basic movement blocks
- * Target: DFRobot Maqueen Plus V3 using the official maqueenPlusV2 extension.
+ * Target: DFRobot Maqueen Plus V3 using official maqueenPlusV2 extension.
  *
  * Timed and continuous Tank/Steering movement.
- * Angle mode estimates wheel rotation by integrating the absolute per-wheel
- * linear-speed readings reported by the Maqueen controller.
- * Wheel diameter is assumed to be 43 mm.
+ * Angle mode estimates wheel rotation by integrating absolute
+ * per-wheel linear-speed readings.
+ * Wheel diameter: 43 mm.
  */
 //% color="#4C8C6B" icon="\uf1b9" block="TEDIS移動"
 namespace tedisMove {
+
     let initialized = false
 
-    // Manual straight movement correction.
-    // Positive = turn right, Negative = turn left.
+    // Manual straight correction
     let straightCorrection = 0
 
-    /** Select whether a timed movement is specified in seconds or wheel rotation angle. */
+    // Deceleration parameters
+    let decelerationStartAngle = 90
+    let decelerationP = 1
+    let minimumSpeed = 10
+
+    /** Movement unit */
     export enum MoveUnit {
         //% block="秒"
-        Seconds,
-        //% block="度"
-        Angle
+        Seconds = 0,
+        //% block="度（通常）"
+        Angle = 1,
+        //% block="度（減速）"
+        AngleDecel = 2
     }
 
-    /** Ensure the official Maqueen Plus extension has initialized its I2C controller. */
     function ensureInitialized(): void {
         if (!initialized) {
             maqueenPlusV2.I2CInit()
@@ -32,18 +37,21 @@ namespace tedisMove {
         }
     }
 
-    /** Convert TEDIS speed 0..100 to the Maqueen motor range.
-     * 0 means stop; 1..100 maps linearly to 40..255.
-     */
+    /** Convert TEDIS speed 0..100 to Maqueen motor range. */
     function motorSpeed(percent: number): number {
         percent = Math.max(0, Math.min(100, percent))
         if (percent <= 0) return 0
         return Math.round(40 + percent * 215 / 100)
     }
 
-    /** Send a signed percentage to one motor. Positive = forward, negative = backward. */
-    function setMotor(motor: maqueenPlusV2.MyEnumMotor, signedPercent: number): void {
+    /** Set one motor. Positive = forward, negative = backward. */
+    function setMotor(
+        motor: maqueenPlusV2.MyEnumMotor,
+        signedPercent: number
+    ): void {
+
         const magnitude = Math.max(-100, Math.min(100, signedPercent))
+
         if (Math.abs(magnitude) < 0.5) {
             maqueenPlusV2.controlMotorStop(motor)
             return
@@ -61,22 +69,20 @@ namespace tedisMove {
     }
 
     /**
-     * Apply manual straight movement correction.
-     * Positive correction turns right.
-     * Negative correction turns left.
-     * Correction is proportional to the original speed.
-     * If either motor exceeds 100, both speeds are shifted
-     * equally to preserve the speed difference.
+     * Apply proportional manual straight correction.
+     * Positive = right, Negative = left.
      */
-    function applyStraightCorrection(left: number, right: number): number[] {
-        if (straightCorrection == 0) {
-            return [left, right]
-        }
+    function applyStraightCorrection(
+        left: number,
+        right: number
+    ): number[] {
 
-        if (left * right < 0) {
-            return [left, right]
-        }
+        if (straightCorrection == 0) return [left, right]
 
+        // Skip opposite-direction movement.
+        if (left * right < 0) return [left, right]
+
+        // Skip when either motor is stopped.
         if (Math.abs(left) < 0.5 || Math.abs(right) < 0.5) {
             return [left, right]
         }
@@ -88,7 +94,7 @@ namespace tedisMove {
         left += direction * adjustment
         right -= direction * adjustment
 
-        // Shift both speeds equally if either exceeds the limit.
+        // Preserve the speed difference when exceeding 100.
         const maxSpeed = Math.max(Math.abs(left), Math.abs(right))
 
         if (maxSpeed > 100) {
@@ -100,7 +106,7 @@ namespace tedisMove {
         return [left, right]
     }
 
-    /** Set manual straight movement correction. */
+    /** Manual straight correction setting. */
     //% block="直進補正を設定 %correction"
     //% correction.min=-100 correction.max=100 correction.defl=0
     //% group="補正"
@@ -109,7 +115,29 @@ namespace tedisMove {
         straightCorrection = Math.max(-100, Math.min(100, correction))
     }
 
-    /** Start Tank movement with independent left/right signed speed percentages. */
+    /**
+     * Set angle deceleration parameters.
+     * P factor 1.0 means speed decreases linearly
+     * from the original speed to minimum speed.
+     */
+    //% block="減速設定 開始角度 %startAngle P係数 %pGain 最低速度 %minSpeed"
+    //% startAngle.min=1 startAngle.max=180 startAngle.defl=90
+    //% pGain.min=0.1 pGain.max=3 pGain.defl=1
+    //% minSpeed.min=1 minSpeed.max=50 minSpeed.defl=10
+    //% group="補正"
+    //% weight=29
+    export function setDecelerationParameters(
+        startAngle: number,
+        pGain: number,
+        minSpeed: number
+    ): void {
+
+        decelerationStartAngle = Math.max(1, startAngle)
+        decelerationP = Math.max(0.1, Math.min(3, pGain))
+        minimumSpeed = Math.max(1, Math.min(50, minSpeed))
+    }
+
+    /** Start Tank movement. */
     function startTank(leftSpeed: number, rightSpeed: number): void {
         ensureInitialized()
 
@@ -119,8 +147,12 @@ namespace tedisMove {
         setMotor(maqueenPlusV2.MyEnumMotor.RightMotor, corrected[1])
     }
 
-    /** Start Steering movement. Steering -100..100; signed speed -100..100. */
-    function startSteering(steering: number, speed: number): void {
+    /** Start Steering movement. */
+    function getSteeringSpeeds(
+        steering: number,
+        speed: number
+    ): number[] {
+
         steering = Math.max(-100, Math.min(100, steering))
         speed = Math.max(-100, Math.min(100, speed))
 
@@ -133,43 +165,52 @@ namespace tedisMove {
             left = speed * (1 + 2 * steering / 100)
         }
 
+        return applyStraightCorrection(left, right)
+    }
+
+    function startSteering(steering: number, speed: number): void {
         ensureInitialized()
 
-        const corrected = applyStraightCorrection(left, right)
+        const corrected = getSteeringSpeeds(steering, speed)
 
         setMotor(maqueenPlusV2.MyEnumMotor.LeftMotor, corrected[0])
         setMotor(maqueenPlusV2.MyEnumMotor.RightMotor, corrected[1])
     }
 
     /**
-     * Run until the wheel that travels farthest reaches the requested rotation angle.
-     * This reference works for both Tank and Steering movement.
-     *
-     * The controller reports linear speed in cm/s.
-     * Integrating its absolute value estimates each wheel's travelled distance.
-     * Wheel diameter is fixed at 43 mm.
+     * Standard angle movement.
+     * Stop when the farther-travelling wheel reaches target angle.
      */
     function runForWheelAngle(angle: number): void {
+
         const wheelDiameterCm = 4.3
-        const targetDistanceCm = Math.PI * wheelDiameterCm * Math.max(0, angle) / 360
+        const targetDistanceCm =
+            Math.PI * wheelDiameterCm * Math.max(0, angle) / 360
 
         let leftDistance = 0
         let rightDistance = 0
+
         let previousTime = input.runningTime()
         let lastMotionTime = previousTime
 
         while (Math.max(leftDistance, rightDistance) < targetDistanceCm) {
+
             basic.pause(20)
+
             const now = input.runningTime()
             const elapsedSeconds = Math.max(0, now - previousTime) / 1000
             previousTime = now
 
             const leftSpeed = Math.abs(
-                maqueenPlusV2.readRealTimeSpeed(maqueenPlusV2.DirectionType2.Left)
+                maqueenPlusV2.readRealTimeSpeed(
+                    maqueenPlusV2.DirectionType2.Left
+                )
             )
 
             const rightSpeed = Math.abs(
-                maqueenPlusV2.readRealTimeSpeed(maqueenPlusV2.DirectionType2.Right)
+                maqueenPlusV2.readRealTimeSpeed(
+                    maqueenPlusV2.DirectionType2.Right
+                )
             )
 
             leftDistance += leftSpeed * elapsedSeconds
@@ -185,8 +226,123 @@ namespace tedisMove {
         stop()
     }
 
-    /** Run for either the specified time or the wheel rotation angle. */
+    /**
+     * P-based deceleration.
+     * Both motors are reduced by the same ratio,
+     * preserving the original steering ratio.
+     */
+    function runForWheelAngleDecel(
+        angle: number,
+        leftBase: number,
+        rightBase: number
+    ): void {
+
+        ensureInitialized()
+
+        const wheelDiameterCm = 4.3
+        const targetDistanceCm =
+            Math.PI * wheelDiameterCm * Math.max(0, angle) / 360
+
+        let leftDistance = 0
+        let rightDistance = 0
+
+        let previousTime = input.runningTime()
+        let lastMotionTime = previousTime
+
+        const maxBaseSpeed = Math.max(
+            Math.abs(leftBase),
+            Math.abs(rightBase)
+        )
+
+        // Start at the original speed.
+        setMotor(maqueenPlusV2.MyEnumMotor.LeftMotor, leftBase)
+        setMotor(maqueenPlusV2.MyEnumMotor.RightMotor, rightBase)
+
+        while (Math.max(leftDistance, rightDistance) < targetDistanceCm) {
+
+            const travelledDistance = Math.max(
+                leftDistance,
+                rightDistance
+            )
+
+            const remainingDistance = Math.max(
+                0,
+                targetDistanceCm - travelledDistance
+            )
+
+            const remainingAngle =
+                remainingDistance / (Math.PI * wheelDiameterCm) * 360
+
+            let speedScale = 1
+
+            // Start P-based deceleration.
+            if (remainingAngle < decelerationStartAngle) {
+
+                const progress =
+                    (decelerationStartAngle - remainingAngle) /
+                    decelerationStartAngle
+
+                const reduction =
+                    (maxBaseSpeed - minimumSpeed) *
+                    progress * decelerationP
+
+                const targetSpeed = Math.max(
+                    minimumSpeed,
+                    maxBaseSpeed - reduction
+                )
+
+                speedScale = maxBaseSpeed > 0
+                    ? Math.min(1, targetSpeed / maxBaseSpeed)
+                    : 0
+            }
+
+            // Apply the same speed ratio to both wheels.
+            setMotor(
+                maqueenPlusV2.MyEnumMotor.LeftMotor,
+                leftBase * speedScale
+            )
+
+            setMotor(
+                maqueenPlusV2.MyEnumMotor.RightMotor,
+                rightBase * speedScale
+            )
+
+            basic.pause(20)
+
+            const now = input.runningTime()
+            const elapsedSeconds =
+                Math.max(0, now - previousTime) / 1000
+
+            previousTime = now
+
+            const leftSpeed = Math.abs(
+                maqueenPlusV2.readRealTimeSpeed(
+                    maqueenPlusV2.DirectionType2.Left
+                )
+            )
+
+            const rightSpeed = Math.abs(
+                maqueenPlusV2.readRealTimeSpeed(
+                    maqueenPlusV2.DirectionType2.Right
+                )
+            )
+
+            leftDistance += leftSpeed * elapsedSeconds
+            rightDistance += rightSpeed * elapsedSeconds
+
+            if (leftSpeed > 0 || rightSpeed > 0) {
+                lastMotionTime = now
+            } else if (now - lastMotionTime > 2000) {
+                break
+            }
+        }
+
+        stop()
+    }
+
+    /** Standard timed or angle movement. */
     function runForUnit(unit: MoveUnit, amount: number): void {
+
         if (unit == MoveUnit.Seconds) {
             basic.pause(Math.max(0, amount) * 1000)
             stop()
@@ -195,16 +351,18 @@ namespace tedisMove {
         }
     }
 
-    /** Stop both motors using the official extension's stop command. */
+    /** Stop both motors. */
     //% block="移動を停止"
     //% group="停止"
     //% weight=1
     export function stop(): void {
         ensureInitialized()
-        maqueenPlusV2.controlMotorStop(maqueenPlusV2.MyEnumMotor.AllMotor)
+        maqueenPlusV2.controlMotorStop(
+            maqueenPlusV2.MyEnumMotor.AllMotor
+        )
     }
 
-    /** Tank drive for a specified number of seconds or wheel rotation angle. */
+    /** Tank movement for time or angle. */
     //% block="移動 左 %leftSpeed 右 %rightSpeed の速度で %amount %unit"
     //% inlineInputMode=inline
     //% leftSpeed.min=-100 leftSpeed.max=100 leftSpeed.defl=50
@@ -213,22 +371,41 @@ namespace tedisMove {
     //% unit.defl=0
     //% group="タンク"
     //% weight=20
-    export function tankForSeconds(leftSpeed: number, rightSpeed: number, amount: number, unit: MoveUnit): void {
-        startTank(leftSpeed, rightSpeed)
-        runForUnit(unit, amount)
+    export function tankForSeconds(
+        leftSpeed: number,
+        rightSpeed: number,
+        amount: number,
+        unit: MoveUnit
+    ): void {
+
+        const corrected = applyStraightCorrection(leftSpeed, rightSpeed)
+
+        if (unit == MoveUnit.AngleDecel) {
+            runForWheelAngleDecel(
+                amount,
+                corrected[0],
+                corrected[1]
+            )
+        } else {
+            startTank(leftSpeed, rightSpeed)
+            runForUnit(unit, amount)
+        }
     }
 
-    /** Tank drive continuously until the stop block is called. */
+    /** Continuous Tank movement. */
     //% block="移動 左 %leftSpeed 右 %rightSpeed の速度で連続"
     //% leftSpeed.min=-100 leftSpeed.max=100 leftSpeed.defl=50
     //% rightSpeed.min=-100 rightSpeed.max=100 rightSpeed.defl=50
     //% group="タンク"
     //% weight=19
-    export function tankOn(leftSpeed: number, rightSpeed: number): void {
+    export function tankOn(
+        leftSpeed: number,
+        rightSpeed: number
+    ): void {
         startTank(leftSpeed, rightSpeed)
     }
 
-    /** Steering drive for a specified number of seconds or wheel rotation angle. */
+    /** Steering movement for time or angle. */
     //% block="移動 方向 %steering 速度 %speed で %amount %unit"
     //% inlineInputMode=inline
     //% steering.min=-100 steering.max=100 steering.defl=0
@@ -237,18 +414,37 @@ namespace tedisMove {
     //% unit.defl=0
     //% group="ステアリング"
     //% weight=18
-    export function steeringForSeconds(steering: number, speed: number, amount: number, unit: MoveUnit): void {
-        startSteering(steering, speed)
-        runForUnit(unit, amount)
+    export function steeringForSeconds(
+        steering: number,
+        speed: number,
+        amount: number,
+        unit: MoveUnit
+    ): void {
+
+        if (unit == MoveUnit.AngleDecel) {
+            const corrected = getSteeringSpeeds(steering, speed)
+
+            runForWheelAngleDecel(
+                amount,
+                corrected[0],
+                corrected[1]
+            )
+        } else {
+            startSteering(steering, speed)
+            runForUnit(unit, amount)
+        }
     }
 
-    /** Steering drive continuously until the stop block is called. */
+    /** Continuous Steering movement. */
     //% block="移動 方向 %steering 速度 %speed で連続"
     //% steering.min=-100 steering.max=100 steering.defl=0
     //% speed.min=-100 speed.max=100 speed.defl=50
     //% group="ステアリング"
     //% weight=17
-    export function steeringOn(steering: number, speed: number): void {
+    export function steeringOn(
+        steering: number,
+        speed: number
+    ): void {
         startSteering(steering, speed)
     }
 }
