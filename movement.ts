@@ -231,114 +231,139 @@ namespace tedisMove {
      * Both motors are reduced by the same ratio,
      * preserving the original steering ratio.
      */
-    function runForWheelAngleDecel(
-        angle: number,
-        leftBase: number,
-        rightBase: number
-    ): void {
+function runForWheelAngleDecel(
+    angle: number,
+    leftBase: number,
+    rightBase: number
+) {
+    ensureInitialized()
 
-        ensureInitialized()
+    const wheelDiameter = 4.3
+    const targetDistanceCm =
+        Math.PI * wheelDiameter * angle / 360
 
-        const wheelDiameterCm = 4.3
-        const targetDistanceCm =
-            Math.PI * wheelDiameterCm * Math.max(0, angle) / 360
+    let leftDistance = 0
+    let rightDistance = 0
 
-        let leftDistance = 0
-        let rightDistance = 0
+    let previousTime = input.runningTime()
+    let lastMotionTime = previousTime
+    let lastLogTime = previousTime
 
-        let previousTime = input.runningTime()
-        let lastMotionTime = previousTime
+    let leftSpeed = 0
+    let rightSpeed = 0
 
-        const maxBaseSpeed = Math.max(
-            Math.abs(leftBase),
-            Math.abs(rightBase)
+    const maxBaseSpeed = Math.max(
+        Math.abs(leftBase),
+        Math.abs(rightBase)
+    )
+
+    // 初期速度を設定
+    setMotor(leftBase, rightBase)
+
+    while (Math.max(leftDistance, rightDistance) < targetDistanceCm) {
+
+        // 残り距離・残り角度を計算
+        let travelledDistance = Math.max(
+            leftDistance,
+            rightDistance
         )
 
-        // Start at the original speed.
-        setMotor(maqueenPlusV2.MyEnumMotor.LeftMotor, leftBase)
-        setMotor(maqueenPlusV2.MyEnumMotor.RightMotor, rightBase)
+        let remainingDistance =
+            targetDistanceCm - travelledDistance
 
-        while (Math.max(leftDistance, rightDistance) < targetDistanceCm) {
+        let remainingAngle =
+            remainingDistance / (Math.PI * wheelDiameter) * 360
 
-            const travelledDistance = Math.max(
-                leftDistance,
-                rightDistance
+        let speedScale = 1
+        let targetSpeed = maxBaseSpeed
+
+        // 減速計算
+        if (remainingAngle < decelerationStartAngle) {
+
+            let progress =
+                (decelerationStartAngle - remainingAngle) /
+                decelerationStartAngle
+
+            let reduction =
+                (maxBaseSpeed - minimumSpeed) *
+                progress *
+                decelerationP
+
+            targetSpeed = Math.max(
+                minimumSpeed,
+                maxBaseSpeed - reduction
             )
 
-            const remainingDistance = Math.max(
-                0,
-                targetDistanceCm - travelledDistance
-            )
-
-            const remainingAngle =
-                remainingDistance / (Math.PI * wheelDiameterCm) * 360
-
-            let speedScale = 1
-
-            // Start P-based deceleration.
-            if (remainingAngle < decelerationStartAngle) {
-
-                const progress =
-                    (decelerationStartAngle - remainingAngle) /
-                    decelerationStartAngle
-
-                const reduction =
-                    (maxBaseSpeed - minimumSpeed) *
-                    progress * decelerationP
-
-                const targetSpeed = Math.max(
-                    minimumSpeed,
-                    maxBaseSpeed - reduction
+            if (maxBaseSpeed > 0) {
+                speedScale = Math.min(
+                    1,
+                    targetSpeed / maxBaseSpeed
                 )
-
-                speedScale = maxBaseSpeed > 0
-                    ? Math.min(1, targetSpeed / maxBaseSpeed)
-                    : 0
-            }
-
-            // Apply the same speed ratio to both wheels.
-            setMotor(
-                maqueenPlusV2.MyEnumMotor.LeftMotor,
-                leftBase * speedScale
-            )
-
-            setMotor(
-                maqueenPlusV2.MyEnumMotor.RightMotor,
-                rightBase * speedScale
-            )
-
-            basic.pause(20)
-
-            const now = input.runningTime()
-            const elapsedSeconds =
-                Math.max(0, now - previousTime) / 1000
-
-            previousTime = now
-
-            const leftSpeed = Math.abs(
-                maqueenPlusV2.readRealTimeSpeed(
-                    maqueenPlusV2.DirectionType2.Left
-                )
-            )
-
-            const rightSpeed = Math.abs(
-                maqueenPlusV2.readRealTimeSpeed(
-                    maqueenPlusV2.DirectionType2.Right
-                )
-            )
-
-            leftDistance += leftSpeed * elapsedSeconds
-            rightDistance += rightSpeed * elapsedSeconds
-
-            if (leftSpeed > 0 || rightSpeed > 0) {
-                lastMotionTime = now
-            } else if (now - lastMotionTime > 2000) {
-                break
             }
         }
 
-        stop()
+        // モーターへの速度指令
+        let commandLeft = leftBase * speedScale
+        let commandRight = rightBase * speedScale
+
+        setMotor(commandLeft, commandRight)
+
+        basic.pause(20)
+
+        // 経過時間
+        let currentTime = input.runningTime()
+        let elapsedSeconds =
+            (currentTime - previousTime) / 1000
+
+        previousTime = currentTime
+
+        // 左右の実測速度を取得（cm/s）
+        leftSpeed = Math.abs(
+            maqueenPlusV2.readRealTimeSpeed(
+                maqueenPlusV2.DirectionType2.Left
+            )
+        )
+
+        rightSpeed = Math.abs(
+            maqueenPlusV2.readRealTimeSpeed(
+                maqueenPlusV2.DirectionType2.Right
+            )
+        )
+
+        // 移動距離を積算
+        leftDistance += leftSpeed * elapsedSeconds
+        rightDistance += rightSpeed * elapsedSeconds
+
+        // 動作状態を確認
+        if (leftSpeed > 0 || rightSpeed > 0) {
+            lastMotionTime = currentTime
+        }
+
+        // 100msごとにシリアル出力
+        if (currentTime - lastLogTime >= 100) {
+
+            serial.writeLine(
+                "t=" + currentTime +
+                " rem=" + remainingAngle +
+                " target=" + targetSpeed +
+                " cmdL=" + commandLeft +
+                " cmdR=" + commandRight +
+                " Lspd=" + leftSpeed +
+                " Rspd=" + rightSpeed
+            )
+
+            lastLogTime = currentTime
+        }
+
+        // 2秒間動作が検出されなければ中断
+        if (currentTime - lastMotionTime > 2000) {
+            break
+        }
     }
+
+    // 停止
+    stop()
+}
 
     /** Standard timed or angle movement. */
     function runForUnit(unit: MoveUnit, amount: number): void {
