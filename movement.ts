@@ -378,6 +378,9 @@ function runForWheelAngleDecel(
     }
 
     // PID distance control with selectable speed
+    //% block="PID距離テスト 方向 %direction|速度 %speed|距離 %distance cm"
+    //% speed.min=1 speed.max=5
+    //% distance.min=1
     export function testDistancePID(
         direction: maqueenPlusV2.SpeedDirection,
         speed: number,
