@@ -378,26 +378,67 @@ function runForWheelAngleDecel(
     }
 
     /**
-     * Official PID distance test.
-     * Straight movement only.
+     * Official PID distance test with adjustable speed.
      */
-    //% block="距離PIDテスト 方向 %direction 距離 %distance cm"
+    //% block="距離PID速度テスト 方向 %direction 速度 %speed 距離 %distance cm"
+    //% speed.min=1 speed.max=5 speed.defl=3
     //% distance.min=1 distance.max=1000 distance.defl=10
     //% group="実験"
     //% weight=10
     export function testDistancePID(
         direction: maqueenPlusV2.SpeedDirection,
+        speed: number,
         distance: number
     ): void {
 
         ensureInitialized()
 
-        // Execute official distance PID and wait for completion.
-        maqueenPlusV2.pidControlDistance(
-            direction,
-            Math.max(1, distance),
-            maqueenPlusV2.MyInterruption.NotAllowed
+        speed = Math.max(1, Math.min(5, Math.round(speed)))
+        distance = Math.max(1, Math.round(distance))
+
+        let buffer = pins.createBuffer(2)
+
+        // 走行方向
+        buffer[0] = 64
+        buffer[1] = direction
+        pins.i2cWriteBuffer(0x10, buffer)
+
+        // PID速度
+        buffer[0] = 85
+        buffer[1] = speed
+        pins.i2cWriteBuffer(0x10, buffer)
+
+        // 距離（上位・下位バイト）
+        buffer[0] = 65
+        buffer[1] = distance >> 8
+        pins.i2cWriteBuffer(0x10, buffer)
+
+        buffer[0] = 66
+        buffer[1] = distance
+        pins.i2cWriteBuffer(0x10, buffer)
+
+        // PID開始
+        buffer[0] = 60
+        buffer[1] = 0x04 | 0x02
+        pins.i2cWriteBuffer(0x10, buffer)
+
+        // PID完了待ち
+        pins.i2cWriteNumber(
+            0x10,
+            87,
+            NumberFormat.Int8LE
         )
+
+        let flagBuffer = pins.i2cReadBuffer(0x10, 1)
+
+        while (flagBuffer[0] == 1) {
+            basic.pause(10)
+            flagBuffer = pins.i2cReadBuffer(0x10, 1)
+        }
+
+        // 左右のモーターを停止
+        stop()
+    }
 
         // Explicitly stop both motors.
         maqueenPlusV2.controlMotorStop(
