@@ -532,8 +532,15 @@ function runForWheelAngleDecel(
                 corrected[1]
             )
         } else {
+            const corrected = getSteeringSpeeds(steering, speed)
             startSteering(steering, speed)
-            runForUnit(unit, amount)
+
+            const outerSpeed = Math.max(
+                Math.abs(corrected[0]),
+                Math.abs(corrected[1])
+            )
+
+            runForUnit(unit, amount, outerSpeed)
         }
     }
 
