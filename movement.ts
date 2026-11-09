@@ -375,13 +375,17 @@ function runForWheelAngleDecel(
 }
 
     /** Standard timed or angle movement. */
-    function runForUnit(unit: MoveUnit, amount: number): void {
+    function runForUnit(
+        unit: MoveUnit,
+        amount: number,
+        speed: number
+    ): void {
 
         if (unit == MoveUnit.Seconds) {
             basic.pause(Math.max(0, amount) * 1000)
             stop()
         } else {
-            runForWheelAngle(amount)
+            runForWheelAngle(amount, speed)
         }
     }
 
