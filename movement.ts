@@ -179,55 +179,60 @@ namespace tedisMove {
 
     /**
      * Standard angle movement.
-     * Stop when the farther-travelling wheel reaches target angle.
+     * Stop both motors when the farther-travelling wheel
+     * reaches the corrected target angle.
      */
-    function runForWheelAngle(angle: number): void {
+    function runForWheelAngle(angle: number, speed: number): void {
 
-    // 速度に応じた停止角度の補正    
-    const correctionAngle = 2.75 * Math.abs(speed) + 35
-    const stopAngle = Math.max(0, angle - correctionAngle)
+        ensureInitialized()
 
-    const targetDistanceCm =
-        Math.PI * wheelDiameterCm * stopAngle / 360
+        const wheelDiameterCm = 4.3
 
-    let leftDistance = 0
-    let rightDistance = 0
+        // 速度に応じた停止角度の補正
+        const correctionAngle = 2.75 * Math.abs(speed) + 35
+        const stopAngle = Math.max(0, angle - correctionAngle)
 
-    let previousTime = input.runningTime()
-    let lastMotionTime = previousTime
+        const targetDistanceCm =
+            Math.PI * wheelDiameterCm * stopAngle / 360
 
-    while (Math.max(leftDistance, rightDistance) < targetDistanceCm) {
+        let leftDistance = 0
+        let rightDistance = 0
 
-        basic.pause(20)
+        let previousTime = input.runningTime()
+        let lastMotionTime = previousTime
 
-        const now = input.runningTime()
-        const elapsedSeconds = Math.max(0, now - previousTime) / 1000
-        previousTime = now
+        while (Math.max(leftDistance, rightDistance) < targetDistanceCm) {
 
-        const leftSpeed = Math.abs(
-            maqueenPlusV2.readRealTimeSpeed(
-                maqueenPlusV2.DirectionType2.Left
+            basic.pause(20)
+
+            const now = input.runningTime()
+            const elapsedSeconds = Math.max(0, now - previousTime) / 1000
+            previousTime = now
+
+            const leftSpeed = Math.abs(
+                maqueenPlusV2.readRealTimeSpeed(
+                    maqueenPlusV2.DirectionType2.Left
+                )
             )
-        )
 
-        const rightSpeed = Math.abs(
-            maqueenPlusV2.readRealTimeSpeed(
-                maqueenPlusV2.DirectionType2.Right
+            const rightSpeed = Math.abs(
+                maqueenPlusV2.readRealTimeSpeed(
+                    maqueenPlusV2.DirectionType2.Right
+                )
             )
-        )
 
-        leftDistance += leftSpeed * elapsedSeconds
-        rightDistance += rightSpeed * elapsedSeconds
+            leftDistance += leftSpeed * elapsedSeconds
+            rightDistance += rightSpeed * elapsedSeconds
 
-        if (leftSpeed > 0 || rightSpeed > 0) {
-            lastMotionTime = now
-        } else if (now - lastMotionTime > 2000) {
-            break
+            if (leftSpeed > 0 || rightSpeed > 0) {
+                lastMotionTime = now
+            } else if (now - lastMotionTime > 2000) {
+                break
+            }
         }
-    }
 
-    stop()
-}
+        stop()
+    }
 
     /**
      * P-based deceleration.
