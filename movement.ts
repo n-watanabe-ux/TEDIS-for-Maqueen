@@ -484,7 +484,13 @@ function runForWheelAngleDecel(
             )
         } else {
             startTank(leftSpeed, rightSpeed)
-            runForUnit(unit, amount)
+
+            const outerSpeed = Math.max(
+                Math.abs(corrected[0]),
+                Math.abs(corrected[1])
+            )
+
+            runForUnit(unit, amount, outerSpeed)
         }
     }
 
