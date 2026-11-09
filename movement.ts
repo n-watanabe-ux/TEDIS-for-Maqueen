@@ -195,7 +195,7 @@ namespace tedisMove {
         const wheelDiameterCm = 4.3
 
         // Speed-based stopping angle correction
-        const correctionAngle = 2.75 * Math.abs(speed) + 35
+        const correctionAngle = 2.7 * Math.abs(speed) + 35
 
         // Keep a small positive movement threshold
         const stopAngle = Math.max(5, angle - correctionAngle)
