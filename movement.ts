@@ -189,7 +189,7 @@ namespace tedisMove {
         const wheelDiameterCm = 4.3
 
         // 速度に応じた停止角度の補正
-        const correctionAngle = 2.75 * Math.abs(speed) + 35
+        const correctionAngle = 2.5 * Math.abs(speed) + 35
         const stopAngle = Math.max(0, angle - correctionAngle)
 
         const targetDistanceCm =
