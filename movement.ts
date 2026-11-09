@@ -181,7 +181,7 @@ namespace tedisMove {
      * Standard angle movement.
      * Stop when the farther-travelling wheel reaches target angle.
      */
-    function runForWheelAngle(angle: number,speed): void {
+    function runForWheelAngle(angle: number): void {
 
     // 速度に応じた停止角度の補正    
     const correctionAngle = 2.75 * Math.abs(speed) + 35
