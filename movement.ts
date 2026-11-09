@@ -2,7 +2,7 @@
  * TEDIS for Maqueen - basic movement blocks
  * Target: DFRobot Maqueen Plus V3 using official maqueenPlusV2 extension.
  *
- * Timed and continuous Tank/Steering movement.
+ * Timed and angle-based Tank/Steering movement.
  * Angle mode estimates wheel rotation by integrating absolute
  * per-wheel linear-speed readings.
  * Wheel diameter: 43 mm.
@@ -15,19 +15,19 @@ namespace tedisMove {
     // Manual straight correction
     let straightCorrection = 0
 
-    // Deceleration parameters
+    /*
+    // Deceleration parameters (保存用)
     let decelerationStartAngle = 90
     let decelerationP = 1
     let minimumSpeed = 10
+    */
 
     /** Movement unit */
     export enum MoveUnit {
         //% block="秒"
         Seconds = 0,
-        //% block="度（通常）"
-        Angle = 1,
-        //% block="度（減速）"
-        AngleDecel = 2
+        //% block="度"
+        Angle = 1
     }
 
     function ensureInitialized(): void {
@@ -115,11 +115,9 @@ namespace tedisMove {
         straightCorrection = Math.max(-100, Math.min(100, correction))
     }
 
-    /**
-     * Set angle deceleration parameters.
-     * P factor 1.0 means speed decreases linearly
-     * from the original speed to minimum speed.
-     */
+    /*
+    // 減速設定ブロック（保存用）
+
     //% block="減速設定 開始角度 %startAngle P係数 %pGain 最低速度 %minSpeed"
     //% startAngle.min=1 startAngle.max=180 startAngle.defl=90
     //% pGain.min=0.1 pGain.max=3 pGain.defl=1
@@ -136,10 +134,14 @@ namespace tedisMove {
         decelerationP = Math.max(0.1, Math.min(3, pGain))
         minimumSpeed = Math.max(1, Math.min(50, minSpeed))
     }
+    */
 
     /** Start Tank movement. */
     function startTank(leftSpeed: number, rightSpeed: number): void {
         ensureInitialized()
+
+        leftSpeed = Math.max(-100, Math.min(100, leftSpeed))
+        rightSpeed = Math.max(-100, Math.min(100, rightSpeed))
 
         const corrected = applyStraightCorrection(leftSpeed, rightSpeed)
 
@@ -147,7 +149,7 @@ namespace tedisMove {
         setMotor(maqueenPlusV2.MyEnumMotor.RightMotor, corrected[1])
     }
 
-    /** Start Steering movement. */
+    /** Calculate Steering motor speeds. */
     function getSteeringSpeeds(
         steering: number,
         speed: number
@@ -168,6 +170,7 @@ namespace tedisMove {
         return applyStraightCorrection(left, right)
     }
 
+    /** Start Steering movement. */
     function startSteering(steering: number, speed: number): void {
         ensureInitialized()
 
@@ -186,11 +189,16 @@ namespace tedisMove {
 
         ensureInitialized()
 
+        // Angle range
+        angle = Math.max(90, Math.min(3600, angle))
+
         const wheelDiameterCm = 4.3
 
-        // 速度に応じた停止角度の補正
-        const correctionAngle = 2.6 * Math.abs(speed) + 35
-        const stopAngle = Math.max(0, angle - correctionAngle)
+        // Speed-based stopping angle correction
+        const correctionAngle = 2.75 * Math.abs(speed) + 35
+
+        // Keep a small positive movement threshold
+        const stopAngle = Math.max(5, angle - correctionAngle)
 
         const targetDistanceCm =
             Math.PI * wheelDiameterCm * stopAngle / 360
@@ -234,146 +242,137 @@ namespace tedisMove {
         stop()
     }
 
-    /**
-     * P-based deceleration.
-     * Both motors are reduced by the same ratio,
-     * preserving the original steering ratio.
-     */
-function runForWheelAngleDecel(
-    angle: number,
-    leftBase: number,
-    rightBase: number
-) {
-    ensureInitialized()
+    /*
+    // 減速角度移動（保存用）
+    // 現時点では使用しない。
+    // 再利用時にはモーター指定や停止補正を再確認すること。
 
-    const wheelDiameter = 4.3
-    const targetDistanceCm =
-        Math.PI * wheelDiameter * angle / 360
+    function runForWheelAngleDecel(
+        angle: number,
+        leftBase: number,
+        rightBase: number
+    ): void {
 
-    let leftDistance = 0
-    let rightDistance = 0
+        ensureInitialized()
 
-    let previousTime = input.runningTime()
-    let lastMotionTime = previousTime
-    let lastLogTime = previousTime
+        const wheelDiameter = 4.3
+        const targetDistanceCm =
+            Math.PI * wheelDiameter * angle / 360
 
-    let leftSpeed = 0
-    let rightSpeed = 0
+        let leftDistance = 0
+        let rightDistance = 0
 
-    const maxBaseSpeed = Math.max(
-        Math.abs(leftBase),
-        Math.abs(rightBase)
-    )
+        let previousTime = input.runningTime()
+        let lastMotionTime = previousTime
+        let lastLogTime = previousTime
 
-    // 初期速度を設定
-    setMotor(maqueenPlusV2.MyEnumMotor.LeftMotor, leftBase)
-    setMotor(maqueenPlusV2.MyEnumMotor.RightMotor, rightBase)
+        let leftSpeed = 0
+        let rightSpeed = 0
 
-    while (Math.max(leftDistance, rightDistance) < targetDistanceCm) {
-
-        // 残り距離・残り角度を計算
-        let travelledDistance = Math.max(
-            leftDistance,
-            rightDistance
+        const maxBaseSpeed = Math.max(
+            Math.abs(leftBase),
+            Math.abs(rightBase)
         )
 
-        let remainingDistance =
-            targetDistanceCm - travelledDistance
+        setMotor(maqueenPlusV2.MyEnumMotor.LeftMotor, leftBase)
+        setMotor(maqueenPlusV2.MyEnumMotor.RightMotor, rightBase)
 
-        let remainingAngle =
-            remainingDistance / (Math.PI * wheelDiameter) * 360
+        while (Math.max(leftDistance, rightDistance) < targetDistanceCm) {
 
-        let speedScale = 1
-        let targetSpeed = maxBaseSpeed
-
-        // 減速計算
-        if (remainingAngle < decelerationStartAngle) {
-
-            let progress =
-                (decelerationStartAngle - remainingAngle) /
-                decelerationStartAngle
-
-            let reduction =
-                (maxBaseSpeed - minimumSpeed) *
-                progress *
-                decelerationP
-
-            targetSpeed = Math.max(
-                minimumSpeed,
-                maxBaseSpeed - reduction
+            let travelledDistance = Math.max(
+                leftDistance,
+                rightDistance
             )
 
-            if (maxBaseSpeed > 0) {
-                speedScale = Math.min(
-                    1,
-                    targetSpeed / maxBaseSpeed
+            let remainingDistance =
+                targetDistanceCm - travelledDistance
+
+            let remainingAngle =
+                remainingDistance / (Math.PI * wheelDiameter) * 360
+
+            let speedScale = 1
+            let targetSpeed = maxBaseSpeed
+
+            if (remainingAngle < decelerationStartAngle) {
+
+                let progress =
+                    (decelerationStartAngle - remainingAngle) /
+                    decelerationStartAngle
+
+                let reduction =
+                    (maxBaseSpeed - minimumSpeed) *
+                    progress *
+                    decelerationP
+
+                targetSpeed = Math.max(
+                    minimumSpeed,
+                    maxBaseSpeed - reduction
                 )
+
+                if (maxBaseSpeed > 0) {
+                    speedScale = Math.min(
+                        1,
+                        targetSpeed / maxBaseSpeed
+                    )
+                }
+            }
+
+            let commandLeft = leftBase * speedScale
+            let commandRight = rightBase * speedScale
+
+            setMotor(maqueenPlusV2.MyEnumMotor.LeftMotor, commandLeft)
+            setMotor(maqueenPlusV2.MyEnumMotor.RightMotor, commandRight)
+
+            basic.pause(20)
+
+            let currentTime = input.runningTime()
+            let elapsedSeconds =
+                (currentTime - previousTime) / 1000
+
+            previousTime = currentTime
+
+            leftSpeed = Math.abs(
+                maqueenPlusV2.readRealTimeSpeed(
+                    maqueenPlusV2.DirectionType2.Left
+                )
+            )
+
+            rightSpeed = Math.abs(
+                maqueenPlusV2.readRealTimeSpeed(
+                    maqueenPlusV2.DirectionType2.Right
+                )
+            )
+
+            leftDistance += leftSpeed * elapsedSeconds
+            rightDistance += rightSpeed * elapsedSeconds
+
+            if (leftSpeed > 0 || rightSpeed > 0) {
+                lastMotionTime = currentTime
+            }
+
+            if (currentTime - lastLogTime >= 100) {
+
+                serial.writeLine(
+                    "t=" + currentTime +
+                    " rem=" + remainingAngle +
+                    " target=" + targetSpeed +
+                    " cmdL=" + commandLeft +
+                    " cmdR=" + commandRight +
+                    " Lspd=" + leftSpeed +
+                    " Rspd=" + rightSpeed
+                )
+
+                lastLogTime = currentTime
+            }
+
+            if (currentTime - lastMotionTime > 2000) {
+                break
             }
         }
 
-        // モーターへの速度指令
-        let commandLeft = leftBase * speedScale
-        let commandRight = rightBase * speedScale
-
-        setMotor(maqueenPlusV2.MyEnumMotor.LeftMotor, commandLeft)
-        setMotor(maqueenPlusV2.MyEnumMotor.RightMotor, commandRight)
-
-        basic.pause(20)
-
-        // 経過時間
-        let currentTime = input.runningTime()
-        let elapsedSeconds =
-            (currentTime - previousTime) / 1000
-
-        previousTime = currentTime
-
-        // 左右の実測速度を取得（cm/s）
-        leftSpeed = Math.abs(
-            maqueenPlusV2.readRealTimeSpeed(
-                maqueenPlusV2.DirectionType2.Left
-            )
-        )
-
-        rightSpeed = Math.abs(
-            maqueenPlusV2.readRealTimeSpeed(
-                maqueenPlusV2.DirectionType2.Right
-            )
-        )
-
-        // 移動距離を積算
-        leftDistance += leftSpeed * elapsedSeconds
-        rightDistance += rightSpeed * elapsedSeconds
-
-        // 動作状態を確認
-        if (leftSpeed > 0 || rightSpeed > 0) {
-            lastMotionTime = currentTime
-        }
-
-        // 100msごとにシリアル出力
-        if (currentTime - lastLogTime >= 100) {
-
-            serial.writeLine(
-                "t=" + currentTime +
-                " rem=" + remainingAngle +
-                " target=" + targetSpeed +
-                " cmdL=" + commandLeft +
-                " cmdR=" + commandRight +
-                " Lspd=" + leftSpeed +
-                " Rspd=" + rightSpeed
-            )
-
-            lastLogTime = currentTime
-        }
-
-        // 2秒間動作が検出されなければ中断
-        if (currentTime - lastMotionTime > 2000) {
-            break
-        }
+        stop()
     }
-
-    // 停止
-    stop()
-}
+    */
 
     /** Standard timed or angle movement. */
     function runForUnit(
@@ -383,7 +382,7 @@ function runForWheelAngleDecel(
     ): void {
 
         if (unit == MoveUnit.Seconds) {
-            basic.pause(Math.max(0, amount) * 1000)
+            basic.pause(Math.max(0, Math.min(3600, amount)) * 1000)
             stop()
         } else {
             runForWheelAngle(amount, speed)
@@ -394,14 +393,15 @@ function runForWheelAngleDecel(
     //% block="PID距離テスト 方向 %direction|速度 %speed|距離 %distance cm"
     //% speed.min=1 speed.max=5
     //% distance.min=1
+    //% group="テスト"
     export function testDistancePID(
         direction: maqueenPlusV2.SpeedDirection,
         speed: number,
         distance: number
     ): void {
+
         ensureInitialized()
 
-        // Official Taiwan extension uses PatrolSpeed 1-5
         speed = Math.max(1, Math.min(5, Math.round(speed)))
         distance = Math.max(1, Math.round(distance))
 
@@ -447,7 +447,7 @@ function runForWheelAngleDecel(
             flagBuffer = pins.i2cReadBuffer(0x10, 1)
         }
     }
-    
+
     /** Stop both motors. */
     //% block="移動を停止"
     //% group="停止"
@@ -464,7 +464,7 @@ function runForWheelAngleDecel(
     //% inlineInputMode=inline
     //% leftSpeed.min=-100 leftSpeed.max=100 leftSpeed.defl=50
     //% rightSpeed.min=-100 rightSpeed.max=100 rightSpeed.defl=50
-    //% amount.min=0 amount.max=3600 amount.defl=1
+    //% amount.min=0 amount.max=3600 amount.defl=360
     //% unit.defl=0
     //% group="タンク"
     //% weight=20
@@ -475,23 +475,25 @@ function runForWheelAngleDecel(
         unit: MoveUnit
     ): void {
 
+        leftSpeed = Math.max(-100, Math.min(100, leftSpeed))
+        rightSpeed = Math.max(-100, Math.min(100, rightSpeed))
+
         const corrected = applyStraightCorrection(leftSpeed, rightSpeed)
 
-        if (unit == MoveUnit.AngleDecel) {
-            runForWheelAngleDecel(
-                amount,
-                corrected[0],
-                corrected[1]
-            )
-        } else {
-            startTank(leftSpeed, rightSpeed)
+        if (unit == MoveUnit.Angle) {
 
             const outerSpeed = Math.max(
                 Math.abs(corrected[0]),
                 Math.abs(corrected[1])
             )
 
+            startTank(leftSpeed, rightSpeed)
             runForUnit(unit, amount, outerSpeed)
+
+        } else {
+
+            startTank(leftSpeed, rightSpeed)
+            runForUnit(unit, amount, 0)
         }
     }
 
@@ -505,6 +507,10 @@ function runForWheelAngleDecel(
         leftSpeed: number,
         rightSpeed: number
     ): void {
+
+        leftSpeed = Math.max(-100, Math.min(100, leftSpeed))
+        rightSpeed = Math.max(-100, Math.min(100, rightSpeed))
+
         startTank(leftSpeed, rightSpeed)
     }
 
@@ -513,7 +519,7 @@ function runForWheelAngleDecel(
     //% inlineInputMode=inline
     //% steering.min=-100 steering.max=100 steering.defl=0
     //% speed.min=-100 speed.max=100 speed.defl=50
-    //% amount.min=0 amount.max=3600 amount.defl=1
+    //% amount.min=0 amount.max=3600 amount.defl=360
     //% unit.defl=0
     //% group="ステアリング"
     //% weight=18
@@ -524,24 +530,25 @@ function runForWheelAngleDecel(
         unit: MoveUnit
     ): void {
 
-        if (unit == MoveUnit.AngleDecel) {
-            const corrected = getSteeringSpeeds(steering, speed)
+        steering = Math.max(-100, Math.min(100, steering))
+        speed = Math.max(-100, Math.min(100, speed))
 
-            runForWheelAngleDecel(
-                amount,
-                corrected[0],
-                corrected[1]
-            )
-        } else {
+        if (unit == MoveUnit.Angle) {
+
             const corrected = getSteeringSpeeds(steering, speed)
-            startSteering(steering, speed)
 
             const outerSpeed = Math.max(
                 Math.abs(corrected[0]),
                 Math.abs(corrected[1])
             )
 
+            startSteering(steering, speed)
             runForUnit(unit, amount, outerSpeed)
+
+        } else {
+
+            startSteering(steering, speed)
+            runForUnit(unit, amount, 0)
         }
     }
 
@@ -555,6 +562,10 @@ function runForWheelAngleDecel(
         steering: number,
         speed: number
     ): void {
+
+        steering = Math.max(-100, Math.min(100, steering))
+        speed = Math.max(-100, Math.min(100, speed))
+
         startSteering(steering, speed)
     }
 }
