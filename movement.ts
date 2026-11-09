@@ -315,7 +315,8 @@ function runForWheelAngleDecel(
         let commandLeft = leftBase * speedScale
         let commandRight = rightBase * speedScale
 
-        setMotor(commandLeft, commandRight)
+        setMotor(maqueenPlusV2.MyEnumMotor.LeftMotor, commandLeft)
+        setMotor(maqueenPlusV2.MyEnumMotor.RightMotor, commandRight)
 
         basic.pause(20)
 
